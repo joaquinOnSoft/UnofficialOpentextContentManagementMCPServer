@@ -1,0 +1,1381 @@
+openapi: 3.0.1
+info:
+  title: Retention Service
+  description: |-
+    Retention service is used to manage the retention policies and holds for Core applications. The service will allow customers to create retention polices and holds that can be applied to documents.
+  version: v4
+servers:
+  - url: https://us.api.opentext.com/retention/v4
+    variables: {}
+    description: United States
+  - url: https://au.api.opentext.com/retention/v4
+    variables: {}
+    description: Australia
+  - url: https://ca.api.opentext.com/retention/v4
+    variables: {}
+    description: Canada
+  - url: https://eu.api.opentext.com/retention/v4
+    variables: {}
+    description: Europe
+  - url: https://na-1.api.opentext.com/retention/v4
+    variables: {}
+    description: North America Production
+  - url: https://eu-1.api.opentext.com/retention/v4
+    variables: {}
+    description: Europe Production
+  - url: https://na-1-dev.api.opentext.com/retention/v4
+    variables: {}
+    description: North America Build & Test
+security:
+  - tenant: []
+tags:
+  - name: Retention Policy
+    description: Retrieve, Create, Update and Delete Retention Policies
+  - name: Hold
+    description: Retrieve, Create, Update and Delete Holds
+paths:
+  /retention-policies:
+    post:
+      tags:
+        - Retention Policy
+      summary: Creates a new retention policy
+      description: |+
+        Create retention policy.
+      operationId: createRetentionPolicy
+      requestBody:
+        description: Create a new retention policy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetentionPolicy'
+        required: true
+      responses:
+        '200':
+          description: Indicates successful creation of a retention policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionPolicyResponse'
+        '400':
+          description: Indicates the given input is not valid so the retention policy cannot be created
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '409':
+          description: Duplicate. Indicates that a retention policy with this name already exists
+          content: {}
+    get:
+      tags:
+        - Retention Policy
+      summary: Retrieve a list of retention policies
+      description: Retrieve a list of retention policies
+      operationId: listRetentionPolicies
+      parameters:
+        - name: offset
+          in: query
+          description: Page number (0 based)
+          schema:
+            type: integer
+            format: int32
+            example: 0
+        - name: count
+          in: query
+          description: Number of retention policies to return in a page.  Default is 10
+          schema:
+            type: integer
+            format: int32
+          example: 10
+        - name: filter
+          in: query
+          description: Filter the retention policy list by field value
+          example: 
+            - title Sample
+            - retentionPolicyId 0d894215-f1e0-4205-8015-8ed60c4e6c81
+          schema:
+            type: array
+            items:
+              type: string
+        - name: sort
+          in: query
+          description: Property to sort on
+          example: createdDate
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Indicates request was successful and the retention policies are returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionRetentionPolicyResponse'
+        '400':
+          description: Indicates a parameter was passed in the wrong format. The status-message contains additional information.
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '404':
+          description: Indicates the field to filter on is not found. See response for details
+          content: {}
+  /retention-policies/{retention-policy-id}:
+    get:
+      tags:
+        - Retention Policy
+      summary: Retrieve a retention policy by Id
+      description: Retrieve a retention policy by Id
+      operationId: getRetentionPolicy
+      parameters:
+        - name: retention-policy-id
+          in: path
+          required: true
+          description: Id of the retention policy to return.
+          schema:
+            type: string
+          example: e9ed24d8-73a8-4d79-8049-224a16cdeb37
+        - name: include-access-policy
+          in: query
+          required: false
+          description: returns the ACL component in the response body
+          schema:
+            type: boolean
+          example: true
+      responses:
+        '200':
+          description: Indicates request was successful and the retention policies are returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionPolicyResponse'
+        '400':
+          description: Indicates a parameter was passed in the wrong format. The status-message contains additional information.
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '404':
+          description: Indicates the field to filter on is not found. See response for details
+          content: {}
+    put:
+      tags:
+        - Retention Policy
+      summary: Update all the fields of the retention policy
+      description: |+
+        Update retention policy.
+      operationId: putRetentionPolicy
+      parameters:
+        - name: retention-policy-id
+          in: path
+          required: true
+          description: Update the selected retention policy.
+          schema:
+            type: string
+          example: e9ed24d8-73a8-4d79-8049-224a16cdeb37
+      requestBody:
+        description: Update all fields of a retention policy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetentionPolicy'
+      responses:
+        '200':
+          description: Indicates successful update of the retention policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionPolicyResponse'
+        '400':
+          description: Indicates the given input is not valid so the retention policy cannot be updated
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '404':
+          description: Indicates the operation is not found for this resource
+          content: {}
+    patch:
+      tags:
+        - Retention Policy
+      summary: Update selected fields of a retention policy
+      description: |+
+        Update retention policy.
+      operationId: patchRetentionPolicy
+      parameters:
+        - name: retention-policy-id
+          in: path
+          required: true
+          description: Update selected fields of the selected retention policy.
+          schema:
+            type: string
+          example: e9ed24d8-73a8-4d79-8049-224a16cdeb37
+      requestBody:
+        description: Update selected fields of a retention policy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetentionPolicy'
+      responses:
+        '200':
+          description: Indicates successful update of the retention policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionPolicyResponse'
+        '400':
+          description: Indicates the given input is not valid so the retention policy cannot be updated
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '404':
+          description: Indicates the operation is not found for this resource
+          content: {}
+    delete:
+      tags:
+        - Retention Policy
+      summary: Delete a retention policy
+      description: |+
+        Delete retention policy.
+      operationId: deleteRetentionPolicy
+      parameters:
+        - name: retention-policy-id
+          in: path
+          required: true
+          description: Delete retention policy.
+          schema:
+            type: string
+          example: e9ed24d8-73a8-4d79-8049-224a16cdeb37
+      responses:
+        '204':
+          description: Indicates successful deletion of the retention policy. Request body is left intentionally empty
+          content: {}
+        '404':
+          description: Indicates the retention policy is not found for this operation
+          content: {}
+  /holds:
+    post:
+      tags:
+        - Hold
+      summary: Create a hold
+      description: |+
+        Create hold.
+      operationId: createHold
+      requestBody:
+        description: Create a new hold
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hold'
+      responses:
+        '200':
+          description: Indicates successful creation of a hold
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '202':
+          description: Indicates successful creation of a hold
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '400':
+          description: Indicates the given input is not valid so the hold cannot be created
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '409':
+          description: Duplicate. Indicates that a hold with this name already exists
+          content: {}
+    get:
+      tags:
+        - Hold
+      summary: Retrieve a list of holds
+      description: Retrieve a list of holds
+      operationId: listHolds
+      parameters:
+        - name: offset
+          in: query
+          description: Page number (0 based)
+          schema:
+            type: integer
+            format: int32
+            example: 0
+        - name: count
+          in: query
+          description: Number of holds to return in a page.  Default is 10
+          schema:
+            type: integer
+            format: int32
+          example: 10
+        - name: filter
+          in: query
+          description: Filter the hold list by field value
+          example: 
+            - title Sample
+            - holdId 0d894215-f1e0-4205-8015-8ed60c4e6c81
+          schema:
+            type: array
+            items:
+              type: string
+        - name: sort
+          in: query
+          description: Property to sort on
+          example: createdDate
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Indicates request was successful and the holds are returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionHoldResponse'
+        '400':
+          description: Indicates a parameter was passed in the wrong format. The status-message contains additional information.
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '404':
+          description: Indicates the field to filter on is not found. See response for details
+          content: {}
+  /holds/{hold-id}:
+    get:
+      tags:
+        - Hold
+      summary: Retrieve a hold by Id
+      description: Retrieve a hold by Id
+      operationId: getHold
+      parameters:
+        - name: hold-id
+          in: path
+          required: true
+          description: Id of the hold to return.
+          schema:
+            type: string
+          example: 50dd8e19-d5a6-4312-b87c-4bc10bc3a684
+        - name: include-access-policy
+          in: query
+          required: false
+          description: returns the ACL component in the response body
+          schema:
+            type: boolean
+          example: true
+      responses:
+        '200':
+          description: Indicates request was successful and the hold is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '202':
+          description: Indicates request was successful and the hold is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '400':
+          description: Indicates a parameter was passed in the wrong format. The status-message contains additional information.
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '404':
+          description: Indicates the field to filter on is not found. See response for details
+          content: {}
+    put:
+      tags:
+        - Hold
+      summary: Update all the fields of the hold
+      description: |+
+        Update hold.
+      operationId: putHold
+      parameters:
+        - name: hold-id
+          in: path
+          required: true
+          description: Update the selected hold.
+          schema:
+            type: string
+          example: 50dd8e19-d5a6-4312-b87c-4bc10bc3a684
+      requestBody:
+        description: Update all fields of a hold
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hold'
+      responses:
+        '200':
+          description: Indicates successful update of the hold
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '400':
+          description: Indicates the given input is not valid so the hold cannot be updated
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '404':
+          description: Indicates the operation is not found for this resource
+          content: {}
+    patch:
+      tags:
+        - Hold
+      summary: Update selected fields of a hold
+      description: |+
+        Update hold.
+      operationId: patchHold
+      parameters:
+        - name: hold-id
+          in: path
+          required: true
+          description: Update selected fields of the selected hold.
+          schema:
+            type: string
+          example: 50dd8e19-d5a6-4312-b87c-4bc10bc3a684
+      requestBody:
+        description: Update selected fields of a hold
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hold'
+      responses:
+        '200':
+          description: Indicates successful update of the hold
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '400':
+          description: Indicates the given input is not valid so the hold cannot be updated
+          content: {}
+        '401':
+          description: Indicates the user is not authorized to perform the operation
+          content: {}
+        '403':
+          description: Indicates the operation is not allowed on this resource
+          content: {}
+        '404':
+          description: Indicates the operation is not found for this resource
+          content: {}
+    delete:
+      tags:
+        - Hold
+      summary: Delete a retention policy
+      description: |+
+        Delete hold.
+      operationId: deleteHold
+      parameters:
+        - name: hold-id
+          in: path
+          required: true
+          description: Delete hold.
+          schema:
+            type: string
+          example: 50dd8e19-d5a6-4312-b87c-4bc10bc3a684
+      responses:
+        '204':
+          description: Indicates successful deletion of the hold. Request body is left intentionally empty
+          content: {}
+        '404':
+          description: Indicates the hold is not found for this operation
+          content: {}
+components:
+  schemas:
+    RetentionPolicy:
+      description: 'Retention Policy'
+      type: object
+      properties:
+        title:
+          type: string
+          description: 'Name of the retention policy'
+          example: 'Projects + 10 years'
+        description:
+          type: string
+          description: 'Describes what the policy is used for and additional details to help the user apply the correct policy to documents'
+          example: 'Keep projects 10 years after they end'
+        mandate:
+          type: string
+          description: 'Describes what governs the rules of this retention policy'
+          example: 'Internal policy 1234'
+        scopeNotes:
+          type: string
+          description: 'Describes what this retention policy encompasses'
+          example: 'All projects in Finance'
+        enabled:
+          type: boolean
+          description: 'Disabled retention policies cannot be applied to documents'
+          example: true
+        disabledComment:
+          type: string
+          description: 'Describes why this retention policy has been disabled e.g. it has been superceded by a more recent policy'
+          example: 'Replaced by Projects + 5 years'
+        disabledDate:
+          type: string
+          description: 'Date the retention policy was disabled'
+          format: date-time
+          example: '2024-02-26T19:36:02.490Z'
+        delayEnforcement:
+          type: integer
+          format: int32
+          description: 'Delay enforcement of applied retention policy in hours 0-48. Retention policy can be changed by the user within the delay window'
+          example: 5
+        phases:
+          type: array
+          description: 'Retention policies currently can only have have one phase'
+          items: 
+            $ref: '#/components/schemas/Phases'
+          example:
+            phaseName: 'Phase 1'
+            dispositionActionCode: 1
+            retentionTriggerCode: 6
+            retentionYears: 10
+            retentionMonths: 5
+            retentionDays: 30
+            retentionIntervals: 1
+            yearEndMonth: 12
+            yearEndDay: 31
+            baseDate:
+              - 'TYPE:cms_file:create_time'
+            fixedDate: '2024-02-26T19:36:02.490Z'
+            triggerType: 'ccm2_entry_documents'
+            triggerCategory: 'folder'
+            eventRule: 'properties.entry_date'
+            taggingAttribute: 'properties.employee_id'
+            searchRules:
+                actionType: 'container'
+                category: 'file'
+                type: 'ccm_employee_docs'
+                attribute: 'properties.employeeid'
+        acl:
+          $ref: '#/components/schemas/Acl'
+      example:
+        title: 'Projects + 10 years'
+        description: 'Keep projects 10 years after they end'
+        mandate: 'Internal policy 1234'
+        scopeNotes: 'All projects in Finance'
+        enabled: true
+        disabledComment: 'Replaced by Projects + 5 years'
+        disabledDate: '2024-02-26T19:36:02.490Z'
+        delayEnforcement: 5
+        phases:
+            phaseName: 'Phase 1'
+            dispositionActionCode: 1
+            retentionTriggerCode: 6
+            retentionYears: 10
+            retentionMonths: 5
+            retentionDays: 30
+            retentionIntervals: 1
+            yearEndMonth: 12
+            yearEndDay: 31
+            baseDate:
+              - 'TYPE:cms_file:create_time'
+            fixedDate: '2024-02-26T19:36:02.490Z'
+            triggerType: 'ccm_entry_documents'
+            triggerCategory: 'folder'
+            eventRule: 'properties.entry_date'
+            taggingAttribute: 'properties.employee_id'
+            searchRules:
+                actionType: 'container'
+                category: 'file'
+                type: 'ccm_employee_docs'
+                attribute: 'properties.employeeid'
+        acl:
+            userAccess:
+                principal:
+                    grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                role: 'resource.owner'
+      required:
+        - title
+        - enabled
+        - phases
+
+    RetentionPolicyResponse:
+      description: 'Retention Policy'
+      type: object
+      properties:
+        retentionPolicyId:
+          type: string
+          description: 'System generated unique identifier for this policy'
+          example: '52fe063c-0c89-4575-9691-8f89e4cae297'
+        title:
+          type: string
+          description: 'Name of the retention policy'
+          example: 'Projects + 10 years'
+        description:
+          type: string
+          description: 'Describes what the policy is used for and additional details to help the user apply the correct policy to documents'
+          example: 'Keep projects 10 years after they end'
+        createdDate:
+          type: string
+          description: 'System generated date when the policy was created'
+          example: '2024-02-26T19:36:02.490Z'
+        modifiedDate:
+          type: string
+          description: 'System generated date when the policy was modified'
+          example: '2024-02-26T19:36:02.490Z'
+        mandate:
+          type: string
+          description: 'Describes what governs the rules of this retention policy'
+          example: 'Internal policy 1234'
+        scopeNotes:
+          type: string
+          description: 'Describes what this retention policy encompasses'
+          example: 'All projects in Finance'
+        enabled:
+          type: boolean
+          description: 'Disabled retention policies cannot be applied to documents'
+          example: true
+        disabledComment:
+          type: string
+          description: 'Describes why this retention policy has been disabled e.g. it has been superceded by a more recent policy'
+          example: 'Replaced by Projects + 5 years'
+        disabledDate:
+          type: string
+          description: 'Date the retention policy was disabled'
+          format: date-time
+          example: '2024-02-26T19:36:02.490Z'
+        delayEnforcement:
+          type: integer
+          format: int32
+          description: 'Delay enforcement of applied retention policy in hours 0-48. Retention policy can be changed by the user within the delay window'
+          example: 5
+        phases:
+          type: array
+          description: 'Retention policies currently can only have have one phase'
+          items: 
+            $ref: '#/components/schemas/Phases'
+          example:
+            phaseName: 'Phase 1'
+            dispositionActionCode: 1
+            retentionTriggerCode: 6
+            retentionYears: 10
+            retentionMonths: 5
+            retentionDays: 30
+            retentionIntervals: 1
+            yearEndMonth: 12
+            yearEndDay: 31
+            baseDate:
+              - 'TYPE:cms_file:create_time'
+            fixedDate: '2024-02-26T19:36:02.490Z'
+            triggerType: 'ccm_entry_documents'
+            triggerCategory: 'folder'
+            eventRule: 'properties.entry_date'
+            taggingAttribute: 'properties.employee_id'
+            searchRules:
+                actionType: 'container'
+                category: 'file'
+                type: 'ccm_employee_docs'
+                attribute: 'properties.employeeid'
+        acl:
+          $ref: '#/components/schemas/AclResponse'
+      example:
+        retentionPolicyId: '52fe063c-0c89-4575-9691-8f89e4cae297'
+        title: 'Projects + 10 years'
+        description: 'Keep projects 10 years after they end'
+        createdDate: '2024-02-26T19:36:02.490Z'
+        modifiedDate: '2024-02-26T19:36:02.490Z'
+        mandate: 'Internal policy 1234'
+        scopeNotes: 'All projects in Finance'
+        enabled: true
+        disabledComment: 'Replaced by Projects + 5 years'
+        disabledDate: '2024-02-26T19:36:02.490Z'
+        delayEnforcement: 5
+        phases:
+            phaseName: 'Phase 1'
+            phaseNumber: 1
+            dispositionActionCode: 1
+            retentionTriggerCode: 6
+            retentionYears: 10
+            retentionMonths: 5
+            retentionDays: 30
+            retentionIntervals: 1
+            yearEndMonth: 12
+            yearEndDay: 31
+            baseDate:
+              - 'TYPE:cms_file:create_time'
+            fixedDate: '2024-02-26T19:36:02.490Z'
+            triggerType: 'ccm_entry_documents'
+            triggerCategory: 'folder'
+            eventRule: 'properties.entry_date'
+            taggingAttribute: 'properties.employee_id'
+            searchRules:
+                actionType: 'container'
+                category: 'file'
+                type: 'ccm_employee_docs'
+                attribute: 'properties.employeeid'
+        acl:
+            clientAccess:
+                principal:
+                    sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                role: 'resource.owner'
+            userAccess:
+                principal:
+                    grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                role: 'resource.owner'
+
+    CollectionRetentionPolicyResponse:
+      description: 'Retention Policies'
+      type: object
+      properties:
+        retention-policies:
+          description: 'List of retention policies'
+          type: array
+          items:
+            $ref: '#/components/schemas/RetentionPolicyResponse'
+          example:
+            retentionPolicyId: '52fe063c-0c89-4575-9691-8f89e4cae297'
+            title: 'Projects + 10 years'
+            description: 'Keep projects 10 years after they end'
+            createdDate: '2024-02-26T19:36:02.490Z'
+            modifiedDate: '2024-02-26T19:36:02.490Z'
+            mandate: 'Internal policy 1234'
+            scopeNotes: 'All projects in Finance'
+            enabled: true
+            disabledComment: 'Replaced by Projects + 5 years'
+            disabledDate: '2024-02-26T19:36:02.490Z'
+            delayEnforcement: 5
+            phases:
+                phaseName: 'Phase 1'
+                phaseNumber: 1
+                dispositionActionCode: 1
+                retentionTriggerCode: 6
+                retentionYears: 10
+                retentionMonths: 5
+                retentionDays: 30
+                retentionIntervals: 1
+                yearEndMonth: 12
+                yearEndDay: 31
+                baseDate:
+                  - 'TYPE:cms_file:create_time'
+                fixedDate: '2024-02-26T19:36:02.490Z'
+                triggerType: 'ccm_entry_documents'
+                triggerCategory: 'folder'
+                eventRule: 'properties.entry_date'
+                taggingAttribute: 'properties.employee_id'
+                searchRules:
+                    actionType: 'container'
+                    category: 'file'
+                    type: 'ccm_employee_docs'
+                    attribute: 'properties.employeeid'
+            acl:
+                clientAccess:
+                    principal:
+                        sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                    role: 'resource.owner'
+                userAccess:
+                    principal:
+                        grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                    role: 'resource.owner'
+        total:
+            description: 'Total number of retention policies returned'
+            type: integer
+            format: int32
+            example: 1
+      example:
+        retention-policies:
+            retentionPolicyId: '52fe063c-0c89-4575-9691-8f89e4cae297'
+            title: 'Projects + 10 years'
+            description: 'Keep projects 10 years after they end'
+            createdDate: '2024-02-26T19:36:02.490Z'
+            modifiedDate: '2024-02-26T19:36:02.490Z'
+            mandate: 'Internal policy 1234'
+            scopeNotes: 'All projects in Finance'
+            enabled: true
+            disabledComment: 'Replaced by Projects + 5 years'
+            disabledDate: '2024-02-26T19:36:02.490Z'
+            delayEnforcement: 5
+            phases:
+                phaseName: 'Phase 1'
+                phaseNumber: 1
+                dispositionActionCode: 1
+                retentionTriggerCode: 6
+                retentionYears: 10
+                retentionMonths: 5
+                retentionDays: 30
+                retentionIntervals: 1
+                yearEndMonth: 12
+                yearEndDay: 31
+                baseDate:
+                  - 'TYPE:cms_file:create_time'
+                fixedDate: '2024-02-26T19:36:02.490Z'
+                triggerType: 'ccm_entry_documents'
+                triggerCategory: 'folder'
+                eventRule: 'properties.entry_date'
+                taggingAttribute: 'properties.employee_id'
+                searchRules:
+                    actionType: 'container'
+                    category: 'file'
+                    type: 'ccm_employee_docs'
+                    attribute: 'properties.employeeid'
+            acl:
+                clientAccess:
+                    principal:
+                        sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                    role: 'resource.owner'
+                userAccess:
+                    principal:
+                        grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                    role: 'resource.owner'
+        total: 1
+
+    Phases:
+      description: 'Retention Policy Phases - Only one phase is supported'
+      type: object
+      properties:
+        phaseName:
+          type: string
+          description: 'Name of the phase.  Currently policies can only have one phase'
+          example: 'Phase 1'
+        dispositionActionCode:
+          type: integer
+          description : 'Retain Permanently 1, Destroy 4'
+          example: 1
+        retentionTriggerCode:
+          type: integer
+          description: 'Calculated Date 1, Calendar Date 2, Event Based (legacy) 3, Fixed Date 4, Permanent 5, Event Based 6'
+          format: int32
+          example: 6
+        retentionYears:
+          type: integer
+          format: int32
+          description: 'Duration in years'
+          example: 10
+        retentionMonths:
+          type: integer
+          format: int32
+          description: 'Duration in months'
+          example: 5
+        retentionDays:
+          type: integer
+          format: int32
+          description: 'Duration in days'
+          example: 30
+        retentionIntervals:
+          type: integer
+          description: '<None> 0, Annually 1, Semi-Annually 2, Tri-Annually  3, Quarterly 4, Semi-Monthly 6, Monthly 12'
+          format: int32
+          example: 1
+        yearEndMonth:
+          type: integer
+          description: 'Month in which your fiscal or calendar year ends'
+          format: int32
+          example: 12
+        yearEndDay:
+          type: integer
+          description: 'Day in which your fiscal or calendar year ends'
+          format: int32
+          example: 31
+        baseDate:
+          type: array
+          description: 'Date field from each type policy is to applied to use for calculating the retention period'
+          items:
+            type: string
+          example: 
+            - 'create_time'
+        fixedDate:
+          type: string
+          description: 'Date at which the document will qualify for disposition'
+          format: date-time
+          example: '2024-02-26T19:36:02.490Z'
+        triggerType:
+          type: string
+          description: 'Object type of the triggering object (document or folder)'
+          example: 'ccm2_entry_documents'
+        triggerCategory:
+          type: string
+          description: 'Category of the trriger type (from CMS)'
+          example: 'folder'
+        eventRule:
+          type: string
+          description: 'Attribute on the trigger type (Event Based) or document (Event based (legacy)) that is used to calculate age'
+          example: 'properties.entry_date'
+        taggingAttribute:
+          type: string
+          description: 'Attribute on the trigger object whose value is used to find the documents that are part of the event'
+          example: 'properties.employee_id'
+        searchRules:
+          type: array
+          description: 'Determines how to locate documents that are part of the event'
+          items:
+            $ref: '#/components/schemas/SearchRules'
+          example:
+            actionType: 'container'
+            category: 'file'
+            type: 'ccm_employee_docs'
+            attribute: 'properties.employeeid'
+      example:
+        phaseName: 'Phase 1'
+        dispositionActionCode: 1
+        retentionTriggerCode: 6
+        retentionYears: 10
+        retentionMonths: 5
+        retentionDays: 30
+        retentionIntervals: 1
+        yearEndMonth: 12
+        yearEndDay: 31
+        baseDate:
+          - 'TYPE:cms_file:create_time'
+        fixedDate: '2024-02-26T19:36:02.490Z'
+        triggerType: 'ccm_entry_documents'
+        triggerCategory: 'folder'
+        eventRule: 'properties.entry_date'
+        taggingAttribute: 'properties.employee_id'
+        searchRules:
+            actionType: 'container'
+            category: 'file'
+            type: 'ccm_employee_docs'
+            attribute: 'properties.employeeid'
+        
+    PhasesResponse:
+      description: 'Retention Policy Phases - only one phase is supported'
+      type: object
+      properties:
+        phaseName:
+          type: string
+          description: 'Name of the phase.  Currently policies can only have one phase'
+          example: 'Phase 1'
+        phaseNumber:
+          type: integer
+          description: 'System generated phase number'
+          example: 1
+        dispositionActionCode:
+          type: integer
+          description : 'Retain Permanently 1, Destroy 4'
+          example: 1
+        retentionTriggerCode:
+          type: integer
+          description: 'Calculated Date 1, Calendar Date 2, Event Based (legacy) 3, Fixed Date 4, Permanent 5, Event Based 6'
+          format: int32
+          example: 6
+        retentionYears:
+          type: integer
+          format: int32
+          description: 'Duration in years'
+          example: 10
+        retentionMonths:
+          type: integer
+          format: int32
+          description: 'Duration in months'
+          example: 5
+        retentionDays:
+          type: integer
+          format: int32
+          description: 'Duration in days'
+          example: 30
+        retentionIntervals:
+          type: integer
+          description: '<None> 0, Annually 1, Semi-Annually 2, Tri-Annually  3, Quarterly 4, Semi-Monthly 6, Monthly 12'
+          format: int32
+          example : 1
+        yearEndMonth:
+          type: integer
+          description: 'Month in which your fiscal or calendar year ends'
+          format: int32
+          example: 12
+        yearEndDay:
+          type: integer
+          description: 'Day in which your fiscal or calendar year ends'
+          format: int32
+          example: 31
+        baseDate:
+          type: array
+          description: 'Date field from each type policy is to applied to use for calculating the retention period'
+          items:
+            type: string
+          example: 
+            - 'create_time'
+        fixedDate:
+          type: string
+          description: 'Date at which the document will qualify for disposition'
+          format: date-time
+          example: '2024-02-26T19:36:02.490Z'
+        triggerType:
+          type: string
+          description: 'Object type of the triggering object (document or folder)'
+          example: 'ccm2_entry_documents'
+        triggerCategory:
+          type: string
+          description: 'Category of the trriger type (from CMS)'
+          example: 'folder'
+        eventRule:
+          type: string
+          description: 'Attribute on the trigger type (Event Based) or document (Event based (legacy)) that is used to calculate age'
+          example: 'properties.entry_date'
+        taggingAttribute:
+          type: string
+          description: 'Attribute on the trigger object whose value is used to find the documents that are part of the event'
+          example: 'properties.employee_id'
+        searchRules:
+          type: array
+          description: 'Determines how to locate documents that are part of the event'
+          items:
+            $ref: '#/components/schemas/SearchRules'
+          example:
+            actionType: 'container'
+            category: 'file'
+            type: 'ccm_employee_docs'
+            attribute: 'properties.employeeid'
+      example:
+        phaseName: 'Phase 1'
+        phaseNumber: 1
+        dispositionActionCode: 1
+        retentionTriggerCode: 6
+        retentionYears: 10
+        retentionMonths: 5
+        retentionDays: 30
+        retentionIntervals: 1
+        yearEndMonth: 12
+        yearEndDay: 31
+        baseDate:
+          - 'TYPE:cms_file:create_time'
+        fixedDate: '2024-02-26T19:36:02.490Z'
+        triggerType: 'ccm_entry_documents'
+        triggerCategory: 'folder'
+        eventRule: 'properties.entry_date'
+        taggingAttribute: 'properties.employee_id'
+        searchRules:
+            actionType: 'container'
+            category: 'file'
+            type: 'ccm_employee_docs'
+            attribute: 'properties.employeeid'
+
+    RoleAssignments:
+      type: object
+      description: 'Determines who has permissions on the policy'
+      properties:
+        principal:
+           type: array  
+           description: 'Users/groups and permissions'
+           items:
+             $ref: '#/components/schemas/Principal'
+           example:
+                sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+        role: 
+          type: string
+          description: 'resource type that is to be granted access to the policy'
+          example: 'resource.owner'
+      example:
+        principal:
+            grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+        role: 'resource.owner'
+
+    Principal:
+      type: object
+      description: 'Users/groups and permissions'
+      properties:
+        sub: 
+          type: string
+          description: 'User that is to be granted access to the role'
+          example: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+        grp:
+          type: string
+          description: 'Group that is to be granted access to the role'
+          example: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+      example:
+        sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757'
+        grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+
+    SearchRules:
+      type: object
+      description: 'Qualifying method Tag or Container'
+      properties:
+        actionType: 
+          type: string
+          description: 'search or container'
+          example: 'container'
+        category:
+          type: string
+          description: 'Category of the object tag Type that represents a document that is part of the event'
+          example: 'file'
+        type:
+          type: string
+          description: 'Type of the document that is part of the event'
+          example: 'ccm_employee_docs'
+        attribute:
+          type: string
+          description: 'Attribute name on the document that will be used to find the document that is part of the event'
+          example: 'properties.employeeid'
+      example:
+        actionType: 'container'
+        category: 'file'
+        type: 'ccm_employee_docs'
+        attribute: 'properties.employeeid'
+
+    Hold:
+      description: 'Hold'
+      type: object
+      properties:
+        title:
+          type: string
+          description: 'Describes what this hold pertains to'
+          example: 'Legal Matter'
+        description:
+          type: string
+          description: 'Detailed description of what this hold pertains to'
+          example: 'Legal matters regarding Patent Infrindgment'
+        mandate:
+          type: string
+          description: 'Describes what governs the rules of this hold'
+          example: 'Internal policy 1234'
+        scopeNotes:
+          type: string
+          description: 'Describes what this hold encompasses'
+          example: 'All projects in Finance'
+        enabled:
+          type: boolean
+          description: 'Disabled retention policies cannot be applied to documents'
+          example: true
+        disabledDate:
+          type: string
+          description: 'Date the hold was disabled'
+          format: date-time
+          example: '2024-02-26T19:36:02.490Z'
+        suspendDate:
+          type: string
+          description: 'Date the hold was suspended'
+          format: date-time
+          example: '2024-02-26T19:36:02.490Z'
+        suspendComment:
+          type: string
+          description: 'Describes why this hold has been suspended e.g. the legal mater has been temporarily dismissed'
+          example: 'Case is temporarily suspended due to negoiations'
+        acl:
+          $ref: '#/components/schemas/Acl'
+      example:
+        title: 'Legal Matter'
+        description: 'Legal matters regarding Patent Infrindgment'
+        mandate: 'Internal policy 1234'
+        scopeNotes: 'All projects in Finance'
+        enabled: true
+        disabledDate: '2024-02-26T19:36:02.490Z'
+        suspendDate: '2024-02-26T19:36:02.490Z'
+        suspendComment: 'Case is temporarily suspended due to negoiations'
+        acl:
+            userAccess:
+                principal:
+                    grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                role: 'resource.owner'
+      required:
+        - title
+        - enabled
+
+    HoldResponse:
+      description: 'Hold'
+      type: object
+      properties:
+        holdId:
+          type: string
+          description: 'System generated unique identifier for this hold'
+          example: '52fe063c-0c89-4575-9691-8f89e4cae297'
+        title:
+          type: string
+          description: 'Describes what this hold pertains to'
+          example: 'Legal Matter'
+        description:
+          type: string
+          description: 'Detailed description of what this hold pertains to'
+          example: 'Legal matters regarding Patent Infrindgment'
+        createdDate:
+          type: string
+          description: 'System generated date when the hold was created'
+          example: '2024-02-26T19:36:02.490Z'
+        modifiedDate:
+          type: string
+          description: 'System generated date when the hold was modified'
+          example: '2024-02-26T19:36:02.490Z'
+        mandate:
+          type: string
+          description: 'Describes what governs the rules of this hold'
+          example: 'Internal policy 1234'
+        scopeNotes:
+          type: string
+          description: 'Describes what this hold encompasses'
+          example: 'All projects in Finance'
+        enabled:
+          type: boolean
+          description: 'Disabled retention policies cannot be applied to documents'
+          example: true
+        disabledDate:
+          type: string
+          description: 'Date the hold was disabled'
+          format: date-time
+          example: '2024-02-26T19:36:02.490Z'
+        suspendDate:
+          type: string
+          description: 'Date the hold was suspended'
+          format: date-time
+          example: '2024-02-26T19:36:02.490Z'
+        suspendComment:
+          type: string
+          description: 'Describes why this hold has been suspended e.g. the legal mater has been temporarily dismissed'
+          example: 'Case is temporarily suspended due to negoiations'
+        acl:
+          $ref: '#/components/schemas/AclResponse'
+      example:
+        holdId: '52fe063c-0c89-4575-9691-8f89e4cae297'
+        title: 'Legal Matter'
+        description: 'Legal matters regarding Patent Infrindgment'
+        createdDate: '2024-02-26T19:36:02.490Z'
+        modifiedDate: '2024-02-26T19:36:02.490Z'
+        mandate: 'Internal policy 1234'
+        scopeNotes: 'All projects in Finance'
+        enabled: true
+        disabledDate: '2024-02-26T19:36:02.490Z'
+        suspendDate: '2024-02-26T19:36:02.490Z'
+        suspendComment: 'Case is temporarily suspended due to negoiations'
+        acl: 
+            clientAccess:
+                principal:
+                    sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                role: 'resource.owner'
+            userAccess:
+                principal:
+                    grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                role: 'resource.owner'
+    Acl:
+      description: 'Access Control List of Retention Policy'
+      type: object
+      properties:
+        userAccess:
+          type: array
+          description: 'Describes the access permmitted for users and groups'
+          items:
+            $ref: '#/components/schemas/RoleAssignments'
+          example:
+            principal:
+                grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+            role: 'resource.owner'
+          
+      example:
+        userAccess:
+            principal:
+                grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+            role: 'resource.owner'
+
+    AclResponse:
+      description: 'Access Control List of Retention Policy and Hold'
+      type: object
+      properties:
+        clientAccess: 
+          type: array
+          description: 'Describes the default system access for users and groups'
+          items:
+              $ref: '#/components/schemas/RoleAssignments' 
+          example:              
+            principal:
+                sub: 'admin@opentext.com'
+            role: 'resource.owner'
+        userAccess:
+          type: array
+          description: 'Describes the access permmitted for users and groups'
+          items:
+            $ref: '#/components/schemas/RoleAssignments'
+          example:              
+            principal:
+                grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+            role: 'resource.owner'
+      example:
+        clientAccess:
+            principal:
+                sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+            role: 'resource.owner'
+        userAccess:
+            principal:
+                grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+            role: 'resource.owner'
+
+    CollectionHoldResponse:
+      description: 'List of Holds'
+      type: object
+      properties:
+        holds:
+          type: array
+          description: 'List of holds'
+          items:
+            $ref: '#/components/schemas/HoldResponse'
+          example:
+            holdId: '52fe063c-0c89-4575-9691-8f89e4cae297'
+            title: 'Legal Matter'
+            description: 'Legal matters regarding Patent Infrindgment'
+            createdDate: '2024-02-26T19:36:02.490Z'
+            modifiedDate: '2024-02-26T19:36:02.490Z'
+            mandate: 'Internal policy 1234'
+            scopeNotes: 'All projects in Finance'
+            enabled: true
+            disabledDate: '2024-02-26T19:36:02.490Z'
+            suspendDate: '2024-02-26T19:36:02.490Z'
+            suspendComment: 'Case is temporarily suspended due to negoiations'
+            acl: 
+                clientAccess:
+                    principal:
+                        sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                    role: 'resource.owner'
+                userAccess:
+                    principal:
+                        grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                    role: 'resource.owner'
+        total:
+            type: integer
+            description: 'Total number of holds returned in the collection'
+            format: int32
+            example: 1
+      example:
+        holds:
+            holdId: '52fe063c-0c89-4575-9691-8f89e4cae297'
+            title: 'Legal Matter'
+            description: 'Legal matters regarding Patent Infrindgment'
+            createdDate: '2024-02-26T19:36:02.490Z'
+            modifiedDate: '2024-02-26T19:36:02.490Z'
+            mandate: 'Internal policy 1234'
+            scopeNotes: 'All projects in Finance'
+            enabled: true
+            disabledDate: '2024-02-26T19:36:02.490Z'
+            suspendDate: '2024-02-26T19:36:02.490Z'
+            suspendComment: 'Case is temporarily suspended due to negoiations'
+            acl: 
+                clientAccess:
+                    principal:
+                        sub: 'e6aa3c56-298a-4b5c-8c7a-704bc9e37757@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                    role: 'resource.owner'
+                userAccess:
+                    principal:
+                        grp: 'Legal Entity 1@42f2d2a3-c3f9-4e4e-88fe-5dc5d4dac297'
+                    role: 'resource.owner'
+        total: 1
+
+  securitySchemes:
+    tenant:
+      type: "openIdConnect"
+      openIdConnectUrl: "https://na-1-dev.api.opentext.com/tenants/$tenantId/.well-known/openid-configuration/"

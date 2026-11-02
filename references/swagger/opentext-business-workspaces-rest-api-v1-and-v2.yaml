@@ -1,0 +1,4974 @@
+openapi: 3.0.1
+info:
+  title: OpenText Business Workspaces REST API
+  description: OpenText Business Workspaces REST API (v1 and v2 calls).
+  version: v1 and v2
+servers:
+  - url: http://content_server_url/api
+  - url: https://content_server_url/api
+security:
+  - basicAuth: []
+tags:
+  - name: auth
+    description: Authenticate user
+  - name: businessworkspaces
+    description: Manage business workspace
+  - name: businessworkspacetypes
+    description: Manage business workspace type
+  - name: businessworkspaceroles
+    description: Get the business workspace roles
+  - name: configurationvolumes
+    description: Get the configuration volumes
+  - name: forms
+    description: Get forms for object creation and search
+  - name: nodes
+    description: Manage nodes
+  - name: refnumbers
+    description: Manage reference numbers
+  - name: pickers
+    description: Get the picker info
+paths:
+  /v1/auth:
+    post:
+      tags:
+        - auth
+      summary: Authenticate user
+      description: >-
+        Authenticates user with the given credentials, returning an OTCS ticket
+        if authorized.
+      operationId: authenticate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+                - password
+                - username
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: Login name
+                password:
+                  type: string
+                  description: Login password
+                  format: password
+                domain:
+                  type: string
+                  description: Login domain
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationInfo'
+        '400':
+          description: Invalid parameter value
+        '401':
+          description: |
+            - Invalid username/password specified
+            - Unable to login. Domain support is disabled
+        '500':
+          description: |
+            - Argument *username* is required
+            - Argument *password* is required
+  /v1/businessworkspaces/{bw_id}:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get business workspace
+      description: Gets the business workspace specific data.
+      operationId: getBusinessWorkspaceInfoV1
+      parameters:
+        - name: bw_id
+          in: path
+          description: Node id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessWorkspaceInfo'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Search for business workspaces
+      description: >-
+        Gets the recently accessed business workspaces or searches for business
+        workspaces.
+         
+        **NOTE: Using filtering can be slow depending on the
+        used operators, amount of data in the system, system resources and so
+        on. Filtering must therefore be tuned system specific with regards to
+        the used columns, operators, etc...**
+      operationId: getRecentlyBusinessWorkspaces
+      parameters:
+        - name: where_workspace_type_id
+          in: query
+          description: Filter for a specific workspace type.
+          schema:
+            type: string
+        - name: where_workspace_type_name
+          in: query
+          description: Workspace type name in supported language
+          schema:
+            type: string
+        - name: expanded_view
+          in: query
+          description: >-
+            Select between the collapsed view and the expanded view. The
+            collapsed view returns the recently accessed business workspaces and
+            the expanded view searches for business workspaces.
+          schema:
+            type: boolean
+            default: false
+        - name: where_is_early
+          in: query
+          description: Filter early workspaces
+          schema:
+            type: boolean
+        - name: where_ext_system_id
+          in: query
+          description: Filter based on external system ID
+          schema:
+            type: string
+        - name: where_bo_type
+          in: query
+          description: Filter based on business object type
+          schema:
+            type: string
+        - name: where_bo_id
+          in: query
+          description: Filter based on business object ID
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort supports the prefixes *asc_* and *desc_* like sort=asc_name.
+          schema:
+            type: string
+        - name: where_name
+          in: query
+          description: >-
+            Filter for a specific column value. The parameters are concatenated
+            using a logical *AND* and the values are compared with the equals
+            operator. If the data type is *String* then the prefixes *contains_*
+            and *startswith_* are supported like where_name=contains_Test.
+          schema:
+            type: string
+        - name: where_column_query
+          in: query
+          description: >-
+            Query to support filtering in a more generic way. The following BNF 
+            is supported:
+              ```
+              <query> ::= <condition> [<sort>]
+              <condition> ::= <expression> ("OR" | "AND" <expression>)*
+              <expression> ::= <column_name> <operation> | "NOT" <condition> | "(" <condition> ")"
+              <sort> ::= <column_name> ("ASC" | "DESC")
+              <column_name> ::= <char>+
+              <operation> ::= <string_operation> | <integer_operation> | <boolean_operation> | <date_operation>
+              <string_operation> ::= ("=" | "LIKE") <string_literal>
+              <integer_operation> ::= (">" | ">=" | "<" | "<=" | "=" | "<>") <integer_literal>
+              <boolean_operation> ::= ("=" | "<>") <boolean_literal>
+              <date_operation> ::= (">" | ">=" | "<" | "<=" | "=" | "<>") (<date_literal> | <date_time_literal>)
+              <string_literal> ::= "<char>"
+              <integer_literal> ::= [-]<digit>+
+              <boolean_literal> ::= "TRUE" | "FALSE"
+              <date_literal> ::= <year>"-"<month>"-"<day>
+              <date_time_literal> ::= <date_literal>"T"<hour>":"<minute>":"<second>
+              <year> ::= <digit><digit>digit><digit>
+              <month> ::= <digit><digit>
+              <day> ::= <digit><digit>
+              <hour> ::= <digit><digit>
+              <minute> ::= <digit><digit>
+              <second> ::= <digit><digit>
+              <char> ::= <letter> | <digit> | <symbol>
+              <letter> ::= A | B | C | D | … | Z | a | b | … | z
+              <digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+              <symbol> ::= "|" | " " | "!" | … | "{" | "}" | "~"
+              <string_literal>: the escape character is " \ ". The supported wildcard characters are " * " (zero or more characters) and " ? " (single character).
+              ```
+            Example:
+              ```
+              where_column_query=name LIKE '*Test' AND ( WNF_ATT_35S_2 > 2020-03-20 OR WNF_ATT_35S_3 = 2020-03-20T08:20:00 )
+              ```
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page Number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Page Size
+          schema:
+            type: integer
+            default: 500
+        - name: include_total_count
+          in: query
+          description: Include Total Count
+          schema:
+            type: boolean
+            default: true
+        - name: where_barcode
+          in: query
+          description: Barcode
+          schema:
+            type: string
+        - name: where_botype_node_id
+          in: query
+          description: Business object type node IDs
+          schema:
+            type: boolean
+        - name: expand
+          in: query
+          description: Expand, e.g. properties{parent_id}
+          schema:
+            type: string
+        - name: expand_users
+          in: query
+          description: Expand users
+          schema:
+            type: boolean
+        - name: fields
+          in: query
+          description: >-
+            Filter fields, e.g. properties{id, parent_id} (parameter *action*
+            must also be provided)
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Action, e.g. properties-
+          schema:
+            type: string
+        - name: metadata
+          in: query
+          description: Returns the metadata globally and with each found item
+          schema:
+            type: boolean
+        - name: global_metadata
+          in: query
+          description: Returns the metadata globally
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2BusinessWorkspacesResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - businessworkspaces
+      summary: Create or update business workspaces
+      description: >-
+        Creates or updates business workspaces. This call is used for automatic creation. 
+        Update is not supported for a business workspace without business object. The 
+        properties of the *bws_infos* entries are supported as it is done with the REST 
+        call HTTP POST */v2/businessworkspaces* and the properties are evaluated in the context of 
+        automatic creation: 
+          - *parent_id*: The parameter is ignored. It is only evaluated for manual creation
+          - *ibo_workspace_id*: The parameter is ignored. It is only evaluated for manual creation
+          
+        The fast bulk method is supported except:
+          - if a business workspace is created and the property *roles* contains 
+            a further role other than *categories* like *import_team*.
+          - if a business workspace with business object is created and relations with 
+            relation type *CompositeParent* or *CompositeChild* are provided.
+         
+        If business workspaces are detected to be created with the fast bulk method then 
+        they are created using a single transaction. If at least one of the business 
+        workspaces cannot be created then the business workspaces are created individually 
+        using a single transaction for each one of them with fast bulk mode and the REST call 
+        returns individual error messages for each business workspace which cannot be created.
+         
+        The supported properties in the *body* are optional. If the property *bo_type_id* is 
+        not provided, then the business object type ID is calculated from the values of *bo_type* 
+        and *ext_system_id*. If the property *template_id* is not provided, then the workspace 
+        template ID is calculated from the values of *bo_type_id* and *bo_id*. If the property 
+        *template_id* is provided, then the workspace type ID is calculated from the value 
+        of *template_id*.
+         
+        Example to create two business workspaces without business object. The location setting of the 
+        workspace type is set to *Current Location*. The name generation is disabled to be used for 
+        business workspaces without business object.
+          ``` 
+           {
+             "bws_infos": [
+                {
+                  "parent_id": 533455,
+                  "template_id": 607403,
+                  "name": "Customer1"
+                },
+                {
+                  "parent_id": 533455,
+                  "template_id": 607403,
+                  "name": "Customer2"
+                }
+              ]
+           }
+          ```
+        Example to create two business workspaces without business object providing a category value and 
+        importing the participants of the roles from another business workspace. The location setting 
+        of the workspace type is set to *Content Server Folder* and is enabled to be used for manual 
+        creation. The name generation is disabled to be used for business workspaces without business 
+        object.
+          ```
+           {
+             "bws_infos": [
+                {
+                  "template_id": 607403,
+                  "name": "Customer1",
+                  "roles": {
+                    "categories": {
+                      "23228": {
+                        "23228_2": "Customer1 Country"
+                      }
+                    },
+                    "importteam": {
+                      "node_id": 4534367
+                    }
+                  }
+                },
+                 {
+                  "template_id": 607403,
+                  "name": "Customer2",
+                  "roles": {
+                    "categories": {
+                      "23228": {
+                        "23228_2": "Customer2 Country"
+                      }
+                    },
+                    "importteam": {
+                      "node_id": 4534369
+                    }
+                  }
+                }
+              ]
+           }
+          ```
+        Example to create two business workspaces without business object providing a multilingual name 
+        and a multilingual description. The location setting of the workspace type is set to *Content 
+        Server Folder* and is enabled to be used for manual creation. The name generation is disabled 
+        to be used for business workspaces without business object.
+          ```
+          {
+             "bws_infos": [
+                {
+                  "template_id": 607403,
+                  "name_multilingual": {
+                    "en": "Customer1 en",
+                    "de": "Customer1 de"
+                  },
+                  "description_multilingual": {
+                    "en": "Customer1 Description en",
+                    "de": "Customer1 Description de"
+                  }
+                },
+                {
+                  "template_id": 607403,
+                  "name_multilingual": {
+                    "en": "Customer2 en",
+                    "de": "Customer2 de"
+                  },
+                  "description_multilingual": {
+                    "en": "Customer2 Description en",
+                    "de": "Customer2 Description de"
+                  }
+                }
+             ]
+           }
+          ```
+        Example to create or update two business workspaces with business object. The location 
+        setting of the workspace type is set to *Content Server Folder*. The name generation is used.
+          ```
+          {
+            "bws_infos": [
+              {
+                "ext_system_id": "ExtSystemId",
+                "bo_type": "BoType",
+                "bo_id": "100001001",
+                "bo_properties": [
+                  {
+                    "name": "country",
+                    "values": [
+                      "Customer1 Country"
+                    ],
+                    "lang_values": []
+                  }
+                ],
+                "bo_property_groups": [
+                  {
+                    "name": "banking_data",
+                    "rows": [
+                      {
+                        "columns": [
+                          {
+                            "name": "iban",
+                            "values": [
+                              "Customer1 IBAN"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "bo_relations": [
+                  {
+                    "relation_type": "CrossApplication",
+                    "business_objects": [
+                      {
+                        "ext_system_id": "ExtSystemId",
+                        "bo_type": "BoType",
+                        "bo_id": "20000001"
+                      }
+                    ]
+                  }
+                ],
+                "bo_roles_users": [
+                  {
+                    "role": "RoleName",
+                    "users": [
+                      "UserName"
+                    ]
+                  }
+                ]
+              },
+              {
+                "ext_system_id": "ExtSystemId",
+                "bo_type": "BoType",
+                "bo_id": "100001002",
+                "bo_properties": [
+                  {
+                    "name": "country",
+                    "values": [
+                      "Customer2 Country"
+                    ],
+                    "lang_values": []
+                  }
+                ],
+                "bo_property_groups": [
+                  {
+                    "name": "banking_data",
+                    "rows": [
+                      {
+                        "columns": [
+                          {
+                            "name": "iban",
+                            "values": [
+                              "Customer2 IBAN"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+          ```
+        It is also supported to pass business workspaces with and without business object in the body.
+         ```
+          {
+             "bws_infos": [
+                {
+                  "template_id": 607403,
+                  "name_multilingual": {
+                    "en": "Company1 en",
+                    "de": "Company1 de"
+                  },
+                  "description_multilingual": {
+                    "en": "Company1 Description en",
+                    "de": "Company1 Description de"
+                  }
+                },
+                {
+                "ext_system_id": "ExtSystemId",
+                "bo_type": "BoType",
+                "bo_id": "100001002",
+                "bo_properties": [
+                  {
+                    "name": "country",
+                    "values": [
+                      "Customer2 Country"
+                    ],
+                    "lang_values": []
+                  }
+                ],
+                "bo_property_groups": [
+                  {
+                    "name": "banking_data",
+                    "rows": [
+                      {
+                        "columns": [
+                          {
+                            "name": "iban",
+                            "values": [
+                              "Customer2 IBAN"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+             ]
+           }
+          ```
+      operationId: createOrUpdateBusinessWorkspaces
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/V2CreateUpdateBusinessWorkspacesProperties'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: >-
+                  #/components/schemas/V2CreateOrUpdateBusinessWorkspacesResponse
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - businessworkspaces
+      summary: Creates or updates a business workspace.
+      description: >-
+        Creates or updates a business workspace. This call is used for manual creation. Update 
+        is only supported for a business workspace with business object by providing the property 
+        *ibo_workspace_id*. The fast bulk method is not supported. 
+         
+        The supported properties in the *body* are optional. If the property *bo_type_id* is 
+        not provided, then the business object type ID is calculated from the values of *bo_type* 
+        and *ext_system_id*. If the property *template_id* is not provided, then the workspace 
+        template ID is calculated from the values of *bo_type_id* and *bo_id*. If the property 
+        *template_id* is provided, then the workspace type ID is calculated from the value 
+        of *template_id*.
+         
+        Example to create a business workspace without business object. The location setting of the 
+        workspace type is set to *Current Location*. The name generation is disabled to be used for 
+        business workspaces without business object.
+          ``` 
+          {
+            "parent_id": 533455,
+            "template_id": 607403,
+            "name": "Customer"
+          }
+          ```
+        Example to create a business workspace without business object providing a category value and 
+        importing the participants of the roles from another business workspace. The location setting 
+        of the workspace type is set to *Content Server Folder* and is enabled to be used for manual 
+        creation. The name generation is disabled to be used for business workspaces without business 
+        object.
+          ```
+          {
+            "template_id": 607403,
+            "name": "Customer",
+            "roles": {
+              "categories": {
+                "23228": {
+                  "23228_2": "Customer Country"
+                }
+              },
+              "importteam": {
+                "node_id": 4534367
+              }
+            }
+          }
+          ```
+        Example to create a business workspace without business object providing a multilingual name 
+        and a multilingual description. The location setting of the workspace type is set to *Content 
+        Server Folder* and is enabled to be used for manual creation. The name generation is disabled 
+        to be used for business workspaces without business object.
+          ```
+          {
+            "template_id": 607403,
+            "name_multilingual": {
+              "en": "Customer en",
+              "de": "Customer de"
+            },
+            "description_multilingual": {
+              "en": "Customer Description en",
+              "de": "Customer Description de"
+            }
+          }
+          ```
+        Example to create a business workspace with business object. The location setting of the workspace 
+        type is set to *Content Server Folder*. The name generation is used.
+          ```
+          {
+            "ext_system_id": "ExtSystemId",
+            "bo_type": "BoType",
+            "bo_id": "100001001",
+            "bo_properties": [
+              {
+                "name": "country",
+                "values": [
+                  "Customer Country"
+                ],
+                "lang_values": []
+              }
+            ],
+            "bo_property_groups": [
+              {
+                "name": "banking_data",
+                "rows": [
+                  {
+                    "columns": [
+                      {
+                        "name": "iban",
+                        "values": [
+                          "Customer IBAN"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "bo_relations": [
+              {
+                "relation_type": "CrossApplication",
+                "business_objects": [
+                  {
+                    "ext_system_id": "ExtSystemId",
+                    "bo_type": "BoType",
+                    "bo_id": "20000000"
+                  }
+                ]
+              }
+            ],
+            "bo_roles_users": [
+              {
+                "role": "RoleName",
+                "users": [
+                  "UserName"
+                ]
+              }
+            ]
+          }
+          ```
+      operationId: createBusinessWorkspace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/V2CreateBusinessWorkspaceProperties'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2CreateBusinessWorkspaceResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get business workspace
+      description: Gets the business workspace specific data.
+      operationId: getBusinessWorkspaceInfo
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: expand
+          in: query
+          description: Expand, e.g. properties{parent_id}
+          schema:
+            type: string
+        - name: fields
+          in: query
+          description: Additional fields, e.g. categories
+          schema:
+            type: string
+        - name: bo_properties_only
+          in: query
+          description: >-
+            Check for business properties call. Deprecated: Use
+            add_recently_accessed
+          schema:
+            type: boolean
+        - name: add_recently_accessed
+          in: query
+          description: Add business workspace to the recently accessed list
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2BusinessWorkspacesSpecificResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/members:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get members of business workspace
+      description: >-
+        Retrieves the members of a given business workspace. The first result is the leader role, if it is available. The next results are the other roles sorted by name. If requested. then the next results are the groups sorted by name.
+      operationId: getMembers
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: Page Number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Page Size
+          schema:
+            type: integer
+            default: 100
+        - name: include_total_count
+          in: query
+          description: Include Total Count
+          schema:
+            type: boolean
+            default: true
+        - name: limit_members
+          in: query
+          description: >-
+            Limit the number of members of each returned role or group.
+          schema:
+            type: integer
+            default: 10
+        - name: include_groups
+          in: query
+          description: >-
+            Filter for groups. Valid Value: "all" or "group_mapping"
+          schema:
+            type: string
+        - name: original_group_name
+          in: query
+          description: >-
+            If true then the original group name is returned. This parameter is only evaluated 
+            if the parameter include_groups=group_mapping is provided. Default value is false.
+          schema:
+            type: boolean
+        - name: fields
+          in: query
+          description: >-
+            Filter fields, e.g. properties{id, name}
+          schema:
+            type: string
+        - name: metadata
+          in: query
+          description: Returns the metadata
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2BusinessWorkspaceMembersResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/members/{member_id}/members:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get members of business workspace member
+      description: >-
+        Retrieves the members of a given business workspace member, sorted by name.
+      operationId: getMemberMembers
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: member_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: Page Number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Page Size
+          schema:
+            type: integer
+            default: 100
+        - name: include_total_count
+          in: query
+          description: Include Total Count
+          schema:
+            type: boolean
+            default: true
+        - name: fields
+          in: query
+          description: >-
+            Filter fields, e.g. properties{id, name}
+          schema:
+            type: string
+        - name: metadata
+          in: query
+          description: Returns the metadata
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2BusinessWorkspaceMemberMembersResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/relateditems:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get related items of business workspace
+      description: Gets the related items of a given business workspace.
+      operationId: getRelatedItems
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: where_workspace_type_id
+          in: query
+          description: >-
+            Workspace type ID. Deprecated: Use parameter
+            where_workspace_type_ids
+          schema:
+            type: string
+        - name: where_workspace_type_ids
+          in: query
+          description: Workspace type IDs
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: integer
+        - name: where_relationtype
+          in: query
+          description: >-
+            Filter by relation type (child,parent). Deprecated, please use
+            parameter where_rel_types. 
+          schema:
+            type: string
+        - name: where_rel_types
+          in: query
+          description: 'Filter by relation types: child and/or parent'
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: where_name
+          in: query
+          description: Filter by workspace name (starts with)
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort supports the prefixes *asc_* and *desc_* like sort=asc_name.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page Number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Page Size
+          schema:
+            type: integer
+            default: 500
+        - name: include_total_count
+          in: query
+          description: Include Total Count
+          schema:
+            type: boolean
+            default: true
+        - name: expand
+          in: query
+          description: Expand, e.g. properties{parent_id}
+          schema:
+            type: string
+        - name: expand_users
+          in: query
+          description: Expand users
+          schema:
+            type: boolean
+        - name: fields
+          in: query
+          description: >-
+            Filter fields, e.g. properties{id, parent_id} (parameter *action*
+            must also be provided)
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Action, e.g. properties-
+          schema:
+            type: string
+        - name: metadata
+          in: query
+          description: Returns the metadata globally and with each found item
+          schema:
+            type: boolean
+        - name: global_metadata
+          in: query
+          description: Returns the metadata globally
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2BusinessWorkspacesResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - businessworkspaces
+      summary: Add relation to the business workspace
+      description: Adds the relation to the business workspace.
+      operationId: addBusinessWorkspaceRelation
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+                - rel_bw_id
+              type: object
+              properties:
+                rel_bw_id:
+                  type: integer
+                  description: Related Business workspace node ID
+                rel_type:
+                  type: string
+                  description: Relation type (child,parent)
+                  default: child
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2AddBusinessWorkspaceRelationResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/relateditems/{rel_bw_id}:
+    delete:
+      tags:
+        - businessworkspaces
+      summary: Delete relation of a business workspace
+      description: Deletes the relation of business workspace.
+      operationId: deleteBusinessWorkspaceRelation
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: rel_bw_id
+          in: path
+          description: Related Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: rel_type
+          in: query
+          description: Relation type (child,parent)
+          schema:
+            type: string
+            default: child
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2DeleteBusinessWorkspacesElementResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/relateditemspicklist:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Search for business workspaces to link
+      description: >-
+        Gets the business workspaces which can be added as related item to the
+        business workspace.
+      operationId: getBusinessWorkspaces
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: where_workspace_type_ids
+          in: query
+          description: Workspace type IDs
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: integer
+        - name: where_rel_type
+          in: query
+          description: Relation type (child,parent)
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort, e.g. asc_name or desc_name or name
+          schema:
+            type: string
+        - name: where_name
+          in: query
+          description: Filter for name, e.g. contains_Customer or starts_with_Customer
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page Number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Page Size
+          schema:
+            type: integer
+            default: 500
+        - name: include_total_count
+          in: query
+          description: Include Total Count
+          schema:
+            type: boolean
+            default: true
+        - name: expand
+          in: query
+          description: Expand, e.g. properties{parent_id}
+          schema:
+            type: string
+        - name: expand_users
+          in: query
+          description: Expand users
+          schema:
+            type: boolean
+        - name: fields
+          in: query
+          description: >-
+            Filter fields, e.g. properties{id, parent_id} (parameter *action*
+            must also be provided)
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Action, e.g. properties-
+          schema:
+            type: string
+        - name: metadata
+          in: query
+          description: Returns the metadata globally and with each found item
+          schema:
+            type: boolean
+        - name: global_metadata
+          in: query
+          description: Returns the metadata globally
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2BusinessWorkspacesResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/icons:
+    put:
+      tags:
+        - businessworkspaces
+      summary: Update icon of business workspace
+      description: >-
+        Updates the widget icon of the business workspace. You can upload images
+        which are smaller than 1 MB in JPEG, PNG, or GIF format. This call is
+        not supported for business templates.
+      operationId: UpdateBusinessWorkspaceIcon
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+                - file
+                - file_content_type
+                - file_filename
+              type: object
+              properties:
+                file_content_type:
+                  type: string
+                  description: Content type of the widget icon
+                file_filename:
+                  type: string
+                  description: File name of the widget icon
+                file_filelength:
+                  type: integer
+                  description: File length of the widget icon
+                file:
+                  type: string
+                  description: Upload path of the widget icon
+                  format: binary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2PutIconResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - businessworkspaces
+      summary: Add widget icon to business workspace
+      description: >-
+        Adds the widget icon to the business workspace. You can upload images
+        which are smaller than 1 MB in JPEG, PNG, or GIF format. This call is
+        not supported for business templates.
+      operationId: CreateBusinessWorkspaceIcon
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+                - file
+                - file_content_type
+                - file_filename
+              type: object
+              properties:
+                file_content_type:
+                  type: string
+                  description: Content type of the widget icon
+                file_filename:
+                  type: string
+                  description: File name of the widget icon
+                file_filelength:
+                  type: integer
+                  description: File length of the widget icon
+                file:
+                  type: string
+                  description: Upload path of the widget icon
+                  format: binary
+                icon_name:
+                  type: string
+                  description: 'Name of the widget icon. Deprecated: Not used'
+      responses:
+        '200':
+          description: OK
+          content: {}
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - businessworkspaces
+      summary: Delete widget icon of business workspace.
+      description: >-
+        Deletes the widget icon of the business workspace. This call is not
+        supported for business templates.
+      operationId: DeleteBusinessWorkspaceIcon
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2BusinessWorkspacesIconsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/roles:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get roles of a business workspace
+      description: Gets the roles of a business workspace.
+      operationId: getBusinessWorkspaceRoles
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: expand
+          in: query
+          description: Expand, e.g. members{group_id}
+          schema:
+            type: string
+        - name: fields
+          in: query
+          description: Additional fields, e.g. members
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2GetBusinessWorkspacesRolesResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - businessworkspaces
+      summary: Add role to business workspace
+      description: >-
+        Adds the role to the business workspace.
+         
+        NOTE: This can only be done passing the information as *body* using JSON
+        format.
+         
+        For example, add role *Customer* having *see* and
+        *see_contents* permissions to business workspace with id *8688*:
+        POST api/v2/businessworkspaces/8688/roles body={*permissions*:[*see*,*see_contents*],*name*:*Customer*}
+      operationId: addBusinessWorkspaceRole
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+                - name
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Role name
+                perms:
+                  type: integer
+                  description: Permissions
+                permissions:
+                  type: array
+                  description: 'List of permissions:'
+                  items:
+                    type: string
+                    enum:
+                      - see
+                      - see_contents
+                      - modify
+                      - edit_attributes
+                      - add_items
+                      - reserve
+                      - add_major_version
+                      - delete_versions
+                      - delete
+                      - edit
+                description:
+                  type: string
+                  description: Description
+                leader:
+                  type: boolean
+                  description: Leader
+                members:
+                  type: array
+                  description: IDs of participants to add to the role
+                  items:
+                    type: integer
+                apply_to:
+                  type: integer
+                  description: >-
+                    Apply permissions to: *0* - this item, *1* - sub items, *2*
+                    - this item and sub items, *3* - this item and immediate
+                    subitems
+                include_sub_types:
+                  type: array
+                  description: Special sub types to be included
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2CreateBusinessWorkspacesRolesResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/roles/{role_id}:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get role of business workspace
+      description: Gets the role of a business workspace.
+      operationId: getBusinessWorkspaceRole
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: role_id
+          in: path
+          description: Role ID
+          required: true
+          schema:
+            type: integer
+        - name: expand
+          in: query
+          description: Expand, e.g. members{group_id}
+          schema:
+            type: string
+        - name: fields
+          in: query
+          description: Additional fields, e.g. members
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: >-
+                  #/components/schemas/V2GetBusinessWorkspacesRolesSpecificResponse
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - businessworkspaces
+      summary: Update role of business workspace
+      description: >-
+        Updates the role of a business workspace.
+         
+        **NOTE: This can only be done passing the information as *body* using JSON format.**
+         
+        For example, set the permissions of role with id
+        *9349* of business workspace with id *8688* to *see* and
+        *see_contents*. PUT api/v2/businessworkspaces/8688/roles/9349 body={*permissions*:[*see*,*see_contents*]}
+      operationId: updateBusinessWorkspaceRole
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: role_id
+          in: path
+          description: Role ID
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Role name
+                perms:
+                  type: integer
+                  description: Permissions
+                permissions:
+                  type: array
+                  description: List of permissions
+                  items:
+                    type: string
+                    enum:
+                      - see
+                      - see_contents
+                      - modify
+                      - edit_attributes
+                      - add_items
+                      - reserve
+                      - add_major_version
+                      - delete_versions
+                      - delete
+                      - edit
+                description:
+                  type: string
+                  description: Description
+                leader:
+                  type: boolean
+                  description: Leader
+                members:
+                  type: array
+                  description: IDs of participants to add to the role
+                  items:
+                    type: integer
+                apply_to:
+                  type: integer
+                  description: >-
+                    Apply permissions to: *0* - this item, *1* - sub items, *2*
+                    - this item and sub items, *3* - this item and immediate
+                    subitems
+                include_sub_types:
+                  type: array
+                  description: Special sub types to be included
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2CreateBusinessWorkspacesRolesResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - businessworkspaces
+      summary: Delete role of business workspace
+      description: Deletes the role of a business workspace.
+      operationId: deleteBusinessWorkspaceRole
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: role_id
+          in: path
+          description: Role ID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2DeleteBusinessWorkspacesElementResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/roles/{role_id}/members:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get members of role
+      description: Gets the members of a role.
+      operationId: getRoleMembers
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: role_id
+          in: path
+          description: Role ID
+          required: true
+          schema:
+            type: integer
+        - name: expand
+          in: query
+          description: Expand, e.g. properties{group_id}
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: >-
+                  #/components/schemas/V2GetBusinessWorkspacesRolesMembersResponse
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - businessworkspaces
+      summary: Add member to role
+      description: Adds the member to a role.
+      operationId: AddRoleMember
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: role_id
+          in: path
+          description: Role ID
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  description: Member ID
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: >-
+                  #/components/schemas/V2BusinessWorkspacesRolesMembersSpecificResponse
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaces/{bw_id}/roles/{role_id}/members/{member_id}:
+    get:
+      tags:
+        - businessworkspaces
+      summary: Get member of role
+      description: Gets the member of a role.
+      operationId: getRoleMember
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: role_id
+          in: path
+          description: Role ID
+          required: true
+          schema:
+            type: integer
+        - name: member_id
+          in: path
+          description: Member ID
+          required: true
+          schema:
+            type: integer
+        - name: expand
+          in: query
+          description: Expand, e.g. properties{group_id}
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: >-
+                  #/components/schemas/V2BusinessWorkspacesRolesMembersSpecificResponse
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - businessworkspaces
+      summary: Delete member of role
+      description: Deletes the member of a role.
+      operationId: DeleteRoleMember
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: role_id
+          in: path
+          description: Role ID
+          required: true
+          schema:
+            type: integer
+        - name: member_id
+          in: path
+          description: Member ID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2DeleteBusinessWorkspacesElementResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/businessworkspacetypes/{workspace_type_id}:
+    get:
+      tags:
+        - businessworkspacetypes
+      summary: Get business workspace type
+      description: Gets the business workspace type.
+      operationId: getBusinessWorkspaceTypeInfo
+      parameters:
+        - name: workspace_type_id
+          in: path
+          description: >-
+            Workspace type ID (internal ID, returned by
+            /nodes/{id}/businessworkspace as workspace_type_id)
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessWorkspaceTypeInfo'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/businessworkspacetypes/{workspace_type_id}/widgets:
+    get:
+      tags:
+        - businessworkspacetypes
+      summary: Get widgets of business workspace type
+      description: >-
+        Gets the configured classic ui side bar widgets of a business workspace
+        type.
+      operationId: getBusinessWorkspaceSidebarWidgetsInfo
+      parameters:
+        - name: workspace_type_id
+          in: path
+          description: Workspace type ID
+          required: true
+          schema:
+            type: integer
+        - name: where_types
+          in: query
+          description: 'Filter by widget types:'
+          schema:
+            type: string
+            enum:
+              - attributes
+              - relatedbusinessworkspaces
+              - recentchanges
+              - businessreference
+              - workitems
+        - name: where_orientation
+          in: query
+          description: 'Filter by widget orientation:'
+          schema:
+            type: string
+            enum:
+              - horizontal
+              - vertical
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessWorkspaceSidebarWidgetsInfo'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspacetypes:
+    get:
+      tags:
+        - businessworkspacetypes
+      summary: Get business workspace types
+      description: Gets all business workspace types.
+      operationId: getBusinessWorkspaceTypes
+      parameters:
+        - name: ext_system_id
+          in: query
+          description: External system ID
+          schema:
+            type: string
+        - name: bo_type
+          in: query
+          description: Business object ID
+          schema:
+            type: string
+        - name: expand_templates
+          in: query
+          description: Include workspace templates
+          schema:
+            type: boolean
+            default: false
+        - name: expand_wksp_info
+          in: query
+          description: Include workspace info
+          schema:
+            type: boolean
+            default: true
+        - name: include_disabled
+          in: query
+          description: Include disabled Business Workspace Types
+          schema:
+            type: boolean
+            default: true
+        - name: sort
+          in: query
+          description: >- 
+            Sort by name. Valid value: "asc_name" or "desc_name"
+          schema:
+            type: string
+        - name: where_manual_creation
+          in: query
+          description: Filter for manual creation
+          schema:
+            type: boolean
+            default: null
+        - name: where_fixed_creation_location
+          in: query
+          description: Filter for fixed creation location
+          schema:
+            type: boolean
+            default: null
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2GetBusinessWorkspaceTypesResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - businessworkspacetypes
+      summary: Create business workspace type
+      description: >-
+        Create business workspace type. Supports passing only a subset of the parameters in the body.
+        Providing values for the the parameters wksp_type_name and wksp_name_generation.wksp_names.\<default language code\> is mandatory.
+      operationId: createBusinessWorkspaceType
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessWorkspaceTypeParams'
+
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2CUDBusinessWorkspaceTypeResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspacetypes/{workspace_type_id}:
+    get:
+      tags:
+        - businessworkspacetypes
+      summary: Get business workspace type
+      description: Get business workspace type.
+      operationId: getBusinessWorkspaceType
+      parameters:
+        - name: workspace_type_id
+          in: path
+          description: >-
+            Workspace type ID
+          required: true
+          schema:
+            type: integer
+        - name: expand_templates
+          in: query
+          description: Include workspace templates
+          schema:
+            type: boolean
+            default: false
+        - name: expand_wksp_info
+          in: query
+          description: Include workspace info
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2GetBusinessWorkspaceTypeResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - businessworkspacetypes
+      summary: Update business workspace type
+      description:  >-
+        Update business workspace type. Supports passing only a subset of the parameters in the body. 
+      operationId: UpdateBusinessWorkspaceType
+      parameters:
+        - name: workspace_type_id
+          in: path
+          description: >-
+            Workspace type ID
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessWorkspaceTypeParams'
+
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2CUDBusinessWorkspaceTypeResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - businessworkspacetypes
+      summary: Delete business workspace type
+      description: Delete business workspace type.
+      operationId: DeleteBusinessWorkspaceType
+      parameters:
+        - name: workspace_type_id
+          in: path
+          description: >-
+            Workspace type ID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2CUDBusinessWorkspaceTypeResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/configurationvolumes:
+    get:
+      tags:
+        - configurationvolumes
+      summary: Get configured volumes
+      description: Get all configuration volumes, the caller has permissions for.
+      operationId: GetConfigurationVolumes
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguredVolumes'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/forms/businessworkspaces/create:
+    get:
+      tags:
+        - forms
+      summary: Get business workspace create form
+      description: >-
+        Gets the form for creating a business workspace. Either you have to
+        provide the template_id or bo_type_id, or the combination of
+        ext_system_id and bo_type.
+      operationId: getBusinessWorkspaceCreateForm
+      parameters:
+        - name: parent_id
+          in: query
+          description: Parent ID
+          schema:
+            type: integer
+        - name: template_id
+          in: query
+          description: Template ID
+          schema:
+            type: integer
+        - name: ext_system_id
+          in: query
+          description: External system ID
+          schema:
+            type: string
+        - name: bo_type
+          in: query
+          description: Business object type
+          schema:
+            type: string
+        - name: bo_type_id
+          in: query
+          description: Business object type ID
+          schema:
+            type: integer
+        - name: bo_id
+          in: query
+          description: Business object ID
+          schema:
+            type: integer
+        - name: completeWorkspace
+          in: query
+          description: Completes a business workspace
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2GetFormsWorkspacesCreateResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/forms/businessworkspaces/{bw_id}/metadata/update:
+    get:
+      tags:
+        - forms
+      summary: Get business workspace metadata update form
+      description: Gets the form for updating the metadata of a business workspace.
+      operationId: getBusinessWorkspaceMetadataUpdateForm
+      parameters:
+        - name: bw_id
+          in: path
+          description: Business workspace node ID
+          required: true
+          schema:
+            type: integer
+        - name: where_rel_workspace_type_ids
+          in: query
+          description: Related Business Workspace type IDs
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: integer
+        - name: where_rel_type
+          in: query
+          description: Relation type (child,parent)
+          schema:
+            type: string
+        - name: fields
+          in: query
+          description: >-
+            Additional fields, e.g. related_items: return for each related
+            business workspace type id (Parameter where_rel_workspace_type_ids)
+            the first found related item
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2GetFormsWorkspaceMetadataUpdateResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/nodes/{id}/businessworkspace:
+    get:
+      tags:
+        - nodes
+      summary: Get business workspace root
+      description: Gets the business workspace root node for the given node.
+      operationId: getBusinessWorkspaceRoot
+      parameters:
+        - name: id
+          in: path
+          description: Node ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessWorkspaceRootInfo'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/nodes/{id}/businessworkspacetypes:
+    get:
+      tags:
+        - nodes
+      summary: Get business workspace types
+      description: Gets the business workspace types for the given node.
+      operationId: getNodeBusinessWorkspaceTypes
+      parameters:
+        - name: id
+          in: path
+          description: Node ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V1GetNodesBusinessWorkspaceTypesResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/nodes/{id}/businessworkspaceroles:
+    post:
+      tags:
+        - nodes
+      summary: Add business workspace role to the node
+      description: Adds the business workspace role to the node
+      operationId: addNodeBusinessWorkspaceRole
+      parameters:
+        - name: id
+          in: path
+          description: Node ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+                - role_id
+              type: object
+              properties:
+                role_id:
+                  type: integer
+                  description: Role ID
+                perms:
+                  type: integer
+                  description: Permissions
+                permissions:
+                  type: array
+                  description: 'List of permissions:'
+                  items:
+                    type: string
+                    enum:
+                      - see
+                      - see_contents
+                      - modify
+                      - edit_attributes
+                      - add_items
+                      - reserve
+                      - add_major_version
+                      - delete_versions
+                      - delete
+                      - edit
+                apply_to:
+                  type: integer
+                  description: >-
+                    Apply permissions to: *0* - this item, *1* - sub items, *2*
+                    - this item and sub items, *3* - this item and immediate
+                    subitems
+                include_sub_types:
+                  type: array
+                  description: Special sub types to be included
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2AddNodeBusinessWorkspaceRoleResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/businessworkspaceroles:
+    get:
+      tags:
+        - businessworkspaceroles
+      summary: Search for business workspaces roles
+      description: Search for business workspace roles
+      operationId: searchBusinessWorkspaceRoles
+      parameters:
+        - name: page
+          in: query
+          description: Page Number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Page Size
+          schema:
+            type: integer
+            default: 10
+        - name: include_total_count
+          in: query
+          description: Include Total Count
+          schema:
+            type: boolean
+            default: true
+        - name: query
+          in: query
+          description: Filter for role name containing the passed string
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: >-
+            Sort for role name. Only the value asc_name or desc_name is
+            supported
+          schema:
+            type: string
+        - name: addable_to_node_id
+          in: query
+          description: ' Returns the roles from all business workspaces which are ancestors of the passed node'
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2SearchBusinessWorkspaceRolesResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/nodes:
+    post:
+      tags:
+        - nodes
+      summary: Create business workspace template
+      description: >-
+        Creates a business workspace template. Deprecated: Use POST
+        /v2/businessworkspaces/
+      operationId: createNode
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+                - name
+                - parent_id
+                - reference_type
+                - type
+              type: object
+              properties:
+                type:
+                  type: integer
+                  description: Subtype of the node
+                parent_id:
+                  type: integer
+                  description: Parent node ID
+                name:
+                  type: string
+                  description: Name of the node
+                reference_type:
+                  type: string
+                  description: Workspace type ID
+                description:
+                  type: string
+                  description: Description of the node
+                external_create_date:
+                  type: string
+                  description: External create date
+                external_modify_date:
+                  type: string
+                  description: External modify date
+                external_source:
+                  type: string
+                  description: External source
+                  enum:
+                    - file_system
+                    - mobile_device
+                    - scanner
+                    - fax
+                    - ftp
+                    - shared_drive
+                    - removable_disk
+                    - backup_media
+                    - optical_disk
+                    - onedrive
+                    - cloud_storage
+                    - camera
+                    - email_server
+                    - elink
+                    - opentext_core
+                    - edocs
+                    - sap
+                    - document_management
+                    - exchange_mailbox
+                    - notes_mailbox
+                    - outlook_pst
+                    - file_stream
+                    - mailbox_other
+                external_identity:
+                  type: string
+                  description: External identity
+                external_identity_type:
+                  type: string
+                  description: External identity type
+                  enum:
+                    - email_address
+                    - domain_userid
+                    - generic_userid
+                    - name
+                    - last_name
+                    - windows_sid
+                    - guid
+                    - phone_number
+                    - ldap_name
+                    - exchange_mailboxid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWorkspaceTemplateResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/refnumbers:
+    post:
+      tags:
+        - refnumbers
+      summary: Generate reference number
+      description: >-
+        This REST API action is meant for fetching a reference number either
+        created or re-generated depending on the *create* parameter which can be
+        either set to *true* or *false*
+      operationId: GenerateReferenceNumber
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+                - create
+              type: object
+              properties:
+                create:
+                  type: boolean
+                  description: >-
+                    If it is set to *true* then creates a reference number else
+                    re-generates a reference number
+                category_id:
+                  type: integer
+                  description: >-
+                    ID of the specific category for which the reference number
+                    is required
+                parent_id:
+                  type: integer
+                  description: ID of the parent
+                attribute_keys:
+                  type: string
+                  description: >-
+                    List of keys for the dependent attributes in the category
+                    for the reference number generation (for testing syntax -
+                    1,2,3)
+                attribute_values:
+                  type: string
+                  description: >-
+                    List of updated values for the dependent attributes in the
+                    category for the reference number generation (for testing
+                    syntax - VAL1,VAL2,VAL3)
+                cache_id:
+                  type: integer
+                  description: >-
+                    ID of the cache to get the category frame while generating a
+                    reference number
+                rm_class_ids:
+                  type: integer
+                  description: RM classification IDs
+                node_id:
+                  type: integer
+                  description: >-
+                    ID of the node to which the reference number should be
+                    created
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/pickers/{picker_type}:
+    get:
+      tags:
+        - pickers
+      summary: Get picker info
+      description: Gets the picker info for a picker type.
+      operationId: DoPickerInfoCustomColumn
+      parameters:
+        - name: picker_type
+          in: path
+          description: >-
+            The picker type, for example *otconws_customcolumn* to get the
+            picker info of a custom column.
+          required: true
+          schema:
+            type: string
+        - name: object_id
+          in: query
+          description: >-
+            The object ID, for example the node ID of a custom column. Either
+            object_id or config_id has to be provided.
+          schema:
+            type: string
+        - name: config_id
+          in: query
+          description: >-
+            The configuration ID, for example the column name of a custom
+            column. Either object_id or config_id has to be provided.
+          schema:
+            type: string
+      responses:
+        '400':
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication Required
+          content: {}
+        '404':
+          description: Not Found
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    AuthenticationInfo:
+      type: object
+      properties:
+        ticket:
+          type: string
+          description: The valid authentication ticket
+    SearchFields:
+      type: object
+      properties:
+        searchFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchFieldDescription'
+    SearchFieldDescription:
+      type: object
+      properties:
+        defaultValue:
+          type: string
+        fieldId:
+          type: string
+        iskeyField:
+          type: boolean
+        label:
+          type: string
+        length:
+          type: integer
+        position:
+          type: integer
+        values:
+          type: array
+          items:
+            type: object
+    GetWorkspaceNameResult:
+      type: object
+      properties:
+        workspace_name:
+          type: string
+        workspace_name_multilingual:
+          $ref: '#/components/schemas/WkspMultiLingual'
+    WkspMultiLingual:
+      type: object
+      properties:
+        language_code (eg en):
+          type: string
+    V2CreateUpdateBusinessWorkspacesProperties:
+      type: object
+      properties:
+        bws_infos:
+          type: array
+          items: 
+            $ref: '#/components/schemas/V2CreateBusinessWorkspaceProperties'
+      required:
+        - bws_infos
+    V2CreateBusinessWorkspaceProperties:
+      type: object
+      properties:
+        parent_id:
+          description: Parent ID
+          type: integer
+        template_id:
+          description: Workspace template ID
+          type: integer
+        wksp_type_id:
+          description: Workspace type ID
+          type: integer
+        name:
+          description: Name
+          type: string
+        name_multilingual:
+          description: >-
+            Multilingual name 
+             ```
+              "name_multilingual": {
+                "en":"Name_en",
+                "de":"Name_de"
+              }
+             ```
+          type: object
+        description:
+          description: Description
+          type: string
+        description_multilingual: 
+          description: >-
+            Multilingual description
+             ```
+              "description_multilingual": {
+                "en":"Description_en",
+                "de":"Description_de"
+              }
+             ```
+          type: object
+        class_id:
+          description: Classification ID 
+          type: integer
+        roles:
+          description: >-
+            categories, importteam, rmclassifications, securityclearances, ..
+              ```
+              "roles": {
+                "categories": {
+                  "23228": {
+                    "23228_2": "Customer Country"
+                  }
+                },
+                "importteam": {
+                  "node_id": 4534367
+                }
+              }
+              ```
+          type: object
+        ibo_workspace_id:
+          description: Identical business workspace ID
+          type: integer
+        ext_system_id:
+          description: External system ID
+          type: string
+        bo_type:
+          description: Business object type
+          type: string
+        bo_type_id:
+          description: Business object type ID
+          type: integer
+        bo_id:
+          description: Business object ID
+          type: string
+        bo_properties:
+          description: >-
+            Business object properties. Business object properties can be mapped to category 
+            attributes on Content Server side. The property *lang_values* is optional.
+              ```
+              "bo_properties": [
+                {
+                  "name": "country",
+                  "values": [
+                    "Customer Country"
+                  ],
+                  "lang_values": [
+                  ]
+                }
+              ]
+             ```
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              values:
+                type: array
+                items:
+                  type: string
+              lang_values:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    lang_code:
+                      type: string
+                    values:
+                      type: array
+                      items:
+                        type: string
+        bo_property_groups:
+          description: >-
+            Business object property groups. Business property groups can be mapped 
+            to multi-value category sets on Content Server side.
+              ```
+              "bo_property_groups": [
+                {
+                  "name": "banking_data",
+                  "rows": [
+                    {
+                      "columns": [
+                        {
+                          "name": "iban",
+                          "values": [
+                            "Customer 3 IBAN"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+              ```
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              rows:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    columns:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                          lang_values:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                lang_code:
+                                  type: string
+                                values:
+                                  type: array
+                                  items:
+                                    type: string
+        bo_relations:
+          description: >-
+            Business object relations. Relations of type *Parent*, *Child*, 
+            *CompositeParent*, and *CrossApplication* are supported.
+              ```
+              "bo_relations": [
+                {
+                  "relation_type": "CrossApplication",
+                  "business_objects": [
+                    {
+                      "ext_system_id": "ExtSystemId",
+                      "bo_type": "BoType",
+                      "bo_id": "20000000"
+                    }
+                  ]
+                }
+              ]
+              ```
+          type: array
+          items:
+            type: object
+            properties:
+              relation_type:
+                type: string
+              business_objects:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    ext_system_id:
+                      type: string
+                    bo_type:
+                      type: string
+                    bo_id:
+                      type: string
+        bo_roles_users:
+          description: >-
+            Business object roles users. Existing role users are replaced.
+              ```
+              "bo_roles_users": [
+                {
+                  "role": "RoleName",
+                  "users": [
+                    "UserName"
+                  ]
+                }
+              ]
+              ```
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              users:
+                type: array
+                items: 
+                  type: string
+    V2CreateBusinessWorkspaceResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          $ref: '#/components/schemas/V2IdResult'
+    V2IdResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The item's unique object ID
+    V2CreateOrUpdateBusinessWorkspacesResponse:
+      type: array
+      description: Results
+      items:
+        $ref: '#/components/schemas/V2CreateOrUpdateBusinessWorkspaceResult'
+    V2CreateOrUpdateBusinessWorkspaceResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Business workspace node ID
+        error_message:
+          type: string
+          description: Error message
+    V2BusinessWorkspaceMembersResult:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        collection:
+          type: object
+          properties:
+            paging: 
+              $ref: '#/components/schemas/V2Paging'
+        results:
+          type: array
+          description: Results
+          items:
+            $ref: '#/components/schemas/V2BusinessWorkspaceMemberResult'
+    V2BusinessWorkspaceMemberResult:
+      type: object
+      properties:
+        actions:
+          $ref: '#/components/schemas/V2Actions'
+        data:
+          $ref: '#/components/schemas/V2BusinessWorkspaceMemberData'
+    V2BusinessWorkspaceMemberData:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/V2BusinessWorkspaceMemberProperties'
+        members:
+          type: array
+          description: Results
+          items:
+            $ref: '#/components/schemas/V2BusinessWorkspaceMemberMemberProperties'
+    V2BusinessWorkspaceMemberProperties:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The item's unique object ID
+        inherited_from_id:
+          type: integer
+          description: Inherited from node ID if available
+        leader:
+          type: boolean
+          description: Is leader role
+        name:
+          type: string
+          description: The name
+        type:
+          type: integer
+          description: The type
+        type_formatted:
+          type: string
+          description: The formatted type
+    V2BusinessWorkspaceMemberMembersResult:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        collection:
+          type: object
+          properties:
+            paging: 
+              $ref: '#/components/schemas/V2Paging'
+        results:
+          type: array
+          description: Results
+          items:
+            $ref: '#/components/schemas/V2BusinessWorkspaceMemberMemberResult'
+    V2BusinessWorkspaceMemberMemberResult:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/V2BusinessWorkspaceMemberMemberData'
+    V2BusinessWorkspaceMemberMemberData:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/V2BusinessWorkspaceMemberMemberProperties'
+    V2BusinessWorkspaceMemberMemberProperties:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The item's unique object ID
+        initials:
+          type: string
+          description: The initials
+        name:
+          type: string
+          description: The name
+        name_formatted:
+          type: string
+          description: The formatted name
+        photo_id:
+          type: integer
+          description: The photo ID
+        photo_url:
+          type: string
+          description: The photo URL
+        type:
+          type: integer
+          description: The type
+        type_name:
+          type: string
+          description: The type name
+    V2BusinessWorkspacesResult:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        paging:
+          $ref: '#/components/schemas/V2Paging'
+        results:
+          type: array
+          description: Results
+          items:
+            $ref: '#/components/schemas/V2BusinessWorkspaceResult'
+        wksp_info:
+          $ref: '#/components/schemas/V2BusinessWorkspaceInfo'
+    V2BusinessWorkspacesSpecificResult:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          $ref: '#/components/schemas/V2BusinessWorkspaceSpecificResult'
+    V2DataLinks:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/V2Links'
+    V2Links:
+      type: object
+      properties:
+        self:
+          $ref: '#/components/schemas/V2Link'
+    V2Link:
+      type: object
+      properties:
+        body:
+          type: string
+          description: Body
+        content_type:
+          type: string
+          description: Content type
+        href:
+          type: string
+          description: URL
+        method:
+          type: string
+          description: HTTP method
+        name:
+          type: string
+          description: Name
+    V2Paging:
+      type: object
+      properties:
+        limit:
+          type: integer
+          description: Limit
+        links:
+          type: object
+          properties: {}
+          description: Links
+        page:
+          type: integer
+          description: Page
+        page_total:
+          type: integer
+          description: Page total
+        range_max:
+          type: integer
+          description: Range max
+        range_min:
+          type: integer
+          description: Range min
+        total_count:
+          type: integer
+          description: Total count
+    V2BusinessWorkspaceResult:
+      type: object
+      properties:
+        actions:
+          $ref: '#/components/schemas/V2Actions'
+        data:
+          $ref: '#/components/schemas/V2BusinessWorkspaceData'
+    V2BusinessWorkspaceSpecificResult:
+      type: object
+      properties:
+        actions:
+          $ref: '#/components/schemas/V2Actions'
+        data:
+          $ref: '#/components/schemas/V2BusinessWorkspaceSpecificData'
+    V2Actions:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/V2ActionsData'
+        map:
+          $ref: '#/components/schemas/V2ActionsMap'
+        order:
+          type: array
+          description: Order
+          items:
+            type: string
+    V2ActionsData:
+      type: object
+    V2ActionsMap:
+      type: object
+    V2BusinessWorkspaceData:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/V2BusinessWorkspaceProperties'
+    V2BusinessWorkspaceSpecificData:
+      type: object
+      properties:
+        business_properties:
+          $ref: '#/components/schemas/V2BusinessWorkspaceBusinessProperties'
+        properties:
+          $ref: '#/components/schemas/V2BusinessWorkspaceSpecificProperties'
+        wksp_info:
+          $ref: '#/components/schemas/V2BusinessWorkspaceInfo'
+        workspace_references:
+          type: array
+          items:
+            type: object
+    V2BusinessWorkspaceBusinessProperties:
+      type: object
+      properties:
+        has_default_display:
+          type: boolean
+        has_default_search:
+          type: boolean
+        isEarly:
+          type: boolean
+        workspace_type_id:
+          type: integer
+        workspace_type_name:
+          type: string
+        workspace_type_name_multilingual:
+          $ref: '#/components/schemas/NameMultilingual'
+    V2BusinessWorkspaceProperties:
+      type: object
+      properties:
+        container:
+          type: boolean
+          description: Whether or not this item is a container
+        create_date:
+          type: string
+          description: (Can be time-zone aware) The date that the item was created
+        create_user_id:
+          type: integer
+          description: The ID of the user who created the item
+        description:
+          type: string
+          description: Description of the item
+        favorite:
+          type: boolean
+          description: Indicates if this item has been favorited by the current user
+        icon:
+          type: string
+          description: The item's icon
+        id:
+          type: integer
+          description: The item's unique object ID
+        image_url:
+          type: string
+          description: The item's widget icon URL
+        modify_date:
+          type: string
+          description: >-
+            (Can be time-zone aware) The date on which the item was last
+            modified
+        modify_user_id:
+          type: integer
+          description: The ID of the user who modified the item
+        name:
+          type: string
+          description: The name of the item
+        original_id:
+          type: integer
+        parent_id:
+          type: integer
+          description: The object ID of the item's parent
+        perm_add_major_version:
+          type: boolean
+        perm_create:
+          type: boolean
+        perm_delete:
+          type: boolean
+        perm_delete_versions:
+          type: boolean
+        perm_modify:
+          type: boolean
+        perm_modify_attributes:
+          type: boolean
+        perm_modify_permissions:
+          type: boolean
+        perm_reserve:
+          type: boolean
+        perm_see:
+          type: boolean
+        perm_see_contents:
+          type: boolean
+        reserved:
+          type: boolean
+          description: Whether or not this item has been reserved
+        reserved_date:
+          type: string
+          description: (Can be time-zone aware) The date on which the item was reserved
+        reserved_user_id:
+          type: integer
+          description: The ID of the user who has this item reserved
+        size:
+          type: integer
+          description: The number of items in this workspace
+        type:
+          type: integer
+          description: The item's type (unique number)
+        type_name:
+          type: string
+          description: The item's type
+        user_id:
+          type: integer
+          description: The user ID of the owner of this item
+        volume_id:
+          type: integer
+          description: The ID of the volume to which this item belongs
+        wnd_comments:
+          type: object
+        wnd_comments_formatted:
+          type: object
+        wnf_bo_type_id:
+          type: object
+        wnf_bo_type_id_formatted:
+          type: object
+        wnf_readydate:
+          type: object
+        wnf_readydate_formatted:
+          type: object
+        wnf_wksp_name_en:
+          type: string
+        wnf_wksp_name_en_formatted:
+          type: string
+        wnf_wksp_template_id:
+          type: integer
+        wnf_wksp_type_id:
+          type: integer
+        wnf_wksp_type_id_formatted:
+          type: string
+    V2BusinessWorkspaceSpecificProperties:
+      type: object
+      properties:
+        container:
+          type: boolean
+          description: Whether or not this item is a container
+        container_size:
+          type: integer
+          description: The number of items in this container
+        create_date:
+          type: string
+          description: (Can be time-zone aware) The date that the item was created
+        create_user_id:
+          type: integer
+          description: The ID of the user who created the item
+        description:
+          type: string
+          description: Description of the item
+        description_multilingual:
+          $ref: '#/components/schemas/DescriptionMultilingual'
+        external_create_date:
+          type: string
+          description: External create date
+        external_identity:
+          type: string
+          description: External identity
+        external_identity_type:
+          type: string
+          description: External identity type
+        external_modify_date:
+          type: string
+          description: External modify date
+        external_source:
+          type: string
+          description: External source
+        favorite:
+          type: boolean
+          description: Indicates if this item has been favorited by the current user
+        guid:
+          type: string
+          description: Globally unique ID
+        icon:
+          type: string
+          description: The item's icon
+        icon_large:
+          type: string
+          description: The item's icon (large)
+        id:
+          type: integer
+          description: The item's unique object ID
+        image_url:
+          type: string
+          description: The item's widget icon URL
+        modify_date:
+          type: string
+          description: >-
+            (Can be time-zone aware) The date on which the item was last
+            modified
+        modify_user_id:
+          type: integer
+          description: The ID of the user who modified the item
+        name:
+          type: string
+          description: The name of the item
+        name_multilingual:
+          $ref: '#/components/schemas/NameMultilingual'
+        owner_group_id:
+          type: integer
+          description: The group ID of the owner of this item
+        owner_user_id:
+          type: integer
+          description: The user ID of the owner of this item
+        parent_id:
+          type: integer
+          description: The object ID of the item's parent
+        reserved:
+          type: boolean
+          description: Whether or not this item has been reserved
+        reserved_date:
+          type: string
+          description: (Can be time-zone aware) The date on which the item was reserved
+        reserved_user_id:
+          type: integer
+          description: The ID of the user who has this item reserved
+        rm_enabled:
+          type: boolean
+          description: Whether or not records management is enabled for this item
+        size:
+          type: integer
+          description: The number of items in this workspace
+        type:
+          type: integer
+          description: The item's type (unique number)
+        type_name:
+          type: string
+          description: The item's type
+        user_id:
+          type: integer
+          description: The user ID of the owner of this item
+        versions_control_advanced:
+          type: boolean
+          description: >-
+            Whether or not newly added items to this item are added as advanced
+            versioning (major/minor versioning)
+        volume_id:
+          type: integer
+          description: The ID of the volume to which this item belongs
+    DescriptionMultilingual:
+      type: object
+      properties:
+        en:
+          type: string
+          description: Description in English
+        de:
+          type: string
+          description: Beschreibung in Deutsch
+    NameMultilingual:
+      type: object
+      properties:
+        en:
+          type: string
+          description: Name in English
+        de:
+          type: string
+          description: Name auf Deutsch
+    V2BusinessWorkspaceInfo:
+      type: object
+      properties:
+        wksp_type_icon:
+          type: string
+          description: Business workspace type icon URL
+    V2BusinessWorkspaceTypeInfo:
+      type: object
+      properties:
+        in_use:
+          type: boolean
+        indexing_status:
+          type: string
+          enum: ["UpToDate", "ReindexingRequired"]
+        modified:
+          type: string
+        perspective_folder_id:
+          type: integer
+        wksp_type_icon:
+          type: string
+          description: Business workspace type icon URL
+    V2BusinessWorkspacesIconsResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          $ref: '#/components/schemas/V2IconResult'
+    V2IconResult:
+      type: object
+      properties:
+        icon_node_id:
+          type: integer
+        msg:
+          type: string
+    V2PutIconResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          $ref: '#/components/schemas/V2IconUpdateResult'
+    V2IconUpdateResult:
+      type: object
+      properties:
+        icon_node_id:
+          type: integer
+        icon_version_id:
+          type: integer
+        msg:
+          type: string
+    V2GetBusinessWorkspacesRolesResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/V2RolesGetResult'
+    V2RolesGetResult:
+      type: object
+      properties:
+        actions:
+          $ref: '#/components/schemas/V2Actions'
+        data:
+          $ref: '#/components/schemas/V2RolesData'
+    V2RolesData:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/V2RolesProperties'
+    V2RolesProperties:
+      type: object
+      properties:
+        description:
+          type: string
+        id:
+          type: integer
+        inherited_from_id:
+          type: object
+        leader:
+          type: boolean
+        name:
+          type: string
+        perms:
+          type: integer
+    V2GetBusinessWorkspacesRolesSpecificResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          $ref: '#/components/schemas/V2RolesGetResult'
+    V2CreateBusinessWorkspacesRolesResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          $ref: '#/components/schemas/V2RolesCreateResult'
+    V2AddBusinessWorkspaceRelationResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: object
+          properties: {}
+    V2DeleteBusinessWorkspacesElementResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: object
+          properties: {}
+    V2RolesCreateResult:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/V2RolesData'
+    V2GetBusinessWorkspacesRolesMembersResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/V2RolesMembersResult'
+    V2BusinessWorkspacesRolesMembersSpecificResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          $ref: '#/components/schemas/V2RolesMembersResult'
+    V2RolesMembersResult:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/V2RolesMembersData'
+    V2RolesMembersData:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/V2RolesMembersGetProperties'
+    V2RolesMembersGetProperties:
+      type: object
+      properties:
+        display_name:
+          type: string
+        first_name:
+          type: string
+        group_id:
+          type: integer
+        group_name:
+          type: string
+        id:
+          type: integer
+        last_name:
+          type: string
+        middle_name:
+          type: string
+        name:
+          type: string
+    BusinessWorkspaceInfo:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessWorkspaceData'
+    RelatedItemsData:
+      type: object
+    BusinessWorkspaceData:
+      type: object
+      properties:
+        attributes:
+          $ref: '#/components/schemas/AttributesInfo'
+        business_reference:
+          $ref: '#/components/schemas/BusinessReferenceInfo'
+        recent_changes:
+          type: array
+          items:
+            type: object
+        related_business_workspaces:
+          type: object
+          properties: {}
+        wksp_info:
+          $ref: '#/components/schemas/BusinessWorkspaceTypeIconInfo'
+        work_items:
+          type: array
+          items:
+            type: object
+    AttributesInfo:
+      type: object
+      properties:
+        data:
+          type: object
+          properties: {}
+        definitions:
+          type: object
+          properties: {}
+        definitions_map:
+          type: object
+          properties: {}
+        definitions_order:
+          type: object
+          properties: {}
+    BusinessReferenceInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Node ID of business workspace
+        has_business_object_id:
+          type: boolean
+          description: >-
+            True, if business workspace is linked to a business object in an
+            external system. False, if the workspace is not linked
+        display_url:
+          type: string
+          description: >-
+            URL to external system for displaying the business object that is
+            linked to the business workspace. Only there if
+            has_business_object_id = true
+        business_object_id:
+          type: string
+          description: >-
+            ID of business object in external system. Only there if
+            has_business_object_id = true
+        business_object_type_id:
+          type: integer
+          description: >-
+            Internal ID of business object type. Only there if
+            has_business_object_id = true
+        workspace_type_id:
+          type: integer
+          description: Internal ID of business workspace type
+        business_object_type_name:
+          type: string
+          description: >-
+            Name of business object type. Only there if has_business_object_id =
+            true
+        workspace_type_name:
+          type: string
+          description: Name of business workspace type
+    BusinessWorkspaceTypeIconInfo:
+      type: object
+      properties:
+        wksp_type_icon:
+          type: string
+          description: Business workspace type icon URL
+
+    BusinessWorkspaceTypeParams:
+      type: object
+      properties:
+        add_creator_to_lead_role:
+          type: boolean
+          description: Add creator to lead role
+        aviator_enabled:
+          description: If the 'Aviator' feature is enabled globally and the value differs from the original value, the indexing of all business workspaces of this business workspace type is started asynchronously in order to either create or delete the index.
+          type: boolean
+        classification:
+          type: object
+          description: Classification settings
+          properties:
+            location:
+              type: string
+              description: Location setting
+              enum: ["None","StaticNodeId","BusinessProperty","CategoryAttribute"]
+            location_value:
+              type: string
+              maxLength: 1024
+              description: >-
+                If the location is set to "None" then the location_value is ignored.
+                If the location is set to "StaticNodeId" then the Classification Node ID has to 
+                be set as location_value. If the location is set to "BusinessProperty" then the 
+                business property name has to be set as location_value. If the location is set 
+                to "CategoryAttribute" then the "\<Categoy ID\>::\<Attribute Name\>" has to be set 
+                as location_value.
+        external_document_storage:
+          type: object
+          description: External document storage
+          properties:
+            rm_classification:
+              type: object
+              description: Records Management Classification
+              properties:
+                location:
+                  type: string
+                  description: Location setting
+                  enum: ["None","StaticNodeId","CategoryAttribute"]
+                location_value:
+                  type: string
+                  maxLength: 1024
+                  description: >-
+                    If the location is set to "None" then the location_value is not evaluated.
+                    If the location is set to "StaticNodeId" then the Records Management 
+                    Classification Node ID has to be set as location_value. If the location 
+                    is set to "CategoryAttribute" then the "\<Category ID\>::\<Attribute Name\>" 
+                    has to be set as location_value.
+            sub_location_path:
+              type: object
+              description: Sub Location Path
+              properties:
+                location:
+                  type: string
+                  description: Location setting
+                  enum: ["None","Pattern"]
+                location_value:
+                  type: string
+                  maxLength: 1024
+                  description: >-
+                    If the location is set to "None" then the location_value is not evaluated.
+                    See the Business Workspaces Configuration Guide on how to use patterns
+                    for the sub location path.
+        indexing:
+          type: object
+          description: Only the setting is updated. Executing the 'Schedule for Reindexing' action on the business workspace type in Classic UI will start the reindexing asynchronously.
+          properties:
+            enabled:
+              type: boolean
+              description: Indexing enabled
+            sub_types:
+              type: array
+              description: List of sub types
+              items:
+                type: integer
+        relations:
+          type: array
+          description: Relation context information.
+          items:
+               $ref: '#/components/schemas/V2RelationContextInformation'
+        rm_enabled:
+          type: boolean
+          description: Records Management enabled
+        search:
+          type: object
+          description: Search settings
+          properties:
+            follow_related_wksp:
+              type: string
+              description: Follow related business workspaces
+              enum: ["Disabled","Enabled","AlwaysEnabled"]
+            max_number_of_followed_wksp:
+              type: integer
+              description: Maximum number of followed business workspaces
+        widget_icon:
+          type: object
+          description: Widget icon
+          properties:
+            content:
+              type: string
+              maxLength: 1500000
+              description: Base64 encoded icon string. The widget icon can be reset by passing an empty string.
+            mime_type:
+              type: string
+              description: The mime type is only evaluated if a non empty string is passed as content.
+              enum: ["image/gif","image/jpeg","image/pjpeg","image/png","image/x-png","image/svg+xml"]
+        wksp_copy_enabled:
+          type: boolean
+          description: Business workspace copying enabled
+        wksp_creation:
+          type: object
+          description: Business workspace creation settings
+          properties:
+            create_wksp_with_fast_bulk_method:
+              type: boolean
+              description: Create business workspace with fast bulk method
+            directly_open_created_wksp:
+              type: boolean
+              description: Directly open business workspace after it has been created
+            location:
+              type: string
+              description: Location setting
+              enum: ["CurrentNode", "StaticNodeId", "BusinessProperty", "CategoryAttribute"]
+            location_value:
+              type: string
+              maxLength: 1024
+              description: >-
+                If the location is set to "CurrentNode" then the location_value is not evaluated. 
+                If the location is set to "StaticNodeId" then the folder ID has to be set as 
+                location_value. If the location is set to "BusinessProperty" then the business 
+                property name has to be set as location_value. If the location is set to 
+                "CategoryAttribute" then the "\<Categoy ID\>::\<Attribute Name\>" has to be set 
+                as location_value.
+            sub_location_path:
+              type: object
+              description: Sub location path. If the location is set to CurrentNode then the sub_location_path is ignored.
+              properties:
+                location:
+                  type: string
+                  description: Location setting.
+                  enum: ["None", "Pattern"]
+                location_value:
+                  type: string
+                  maxLength: 1024
+                  description: >-
+                    If the location is set to "None" then the location_value is not evaluated.
+                    See the Business Workspaces Configuration Guide on how to use patterns
+                    for the sub location path.
+            use_also_for_manual_creation:
+              type: boolean
+              description: Use also for manual creation
+        wksp_creation_enabled:
+          type: boolean
+          description: Business workspace creation enabled
+        wksp_descriptions:
+          type: object
+          description: Language code specific business workspace descriptions
+          properties:
+            en:
+              type: string
+              maxLength: 1000
+            de:
+              type: string
+              maxLength: 1000
+        wksp_icon:
+          type: string
+          maxLength: 1024
+          description: >-
+            Business workspace icon. Valid icons can be found in the folder "support/otsapxecm" 
+            which have the name prefix "wksp" without "large" in the name. A valid value for the 
+            wksp_icon must have the prefix "otsapxecm/wksp", e.g. "otsapxecm/wksp.png". The 
+            business workspace icon can be reset by passing an empty string.
+        wksp_name_generation:
+          type: object
+          description: Business Workspace name generation.
+          properties:
+            use_also_for_wksp_without_bo:
+              type: boolean
+              description: Use also for business workspace without business object
+            wksp_names:
+              type: object
+              description: Language code specific business workspace names
+              properties:
+                en:
+                  type: string
+                  maxLength: 1024
+                de:
+                  type: string
+                  maxLength: 1024
+        wksp_policies_enabled:
+          type: boolean
+          description: Business workspace policies enabled
+        wksp_type_alias_names:
+          type: object
+          description: Language code specific business workspace type alias names
+          properties:
+            en:
+              type: array
+              items:
+                type: string
+            de:
+              type: array
+              items:
+                type: string
+        wksp_type_key_aspects:
+          type: object
+          description: Language code specific business workspace type key aspect
+          properties:
+            en:
+              type: array
+              items:
+                type: string
+            de:
+              type: array
+              items:
+                type: string
+        wksp_type_name:
+          type: string
+          maxLength: 248
+          description: Business workspace type name
+        wksp_type_names:
+          type: object
+          description: Language code specific business workspace type names
+          properties:
+            en:
+              type: string
+              maxLength: 1024
+            de:
+              type: string
+              maxLength: 1024
+    V2CUDBusinessWorkspaceTypeResult:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: object
+          description: Results
+          properties:
+            wksp_type_id:
+              type: integer
+              description: Business workspace type ID
+    V2GetBusinessWorkspaceTypesResult:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: array
+          description: Results
+          items:
+            $ref: '#/components/schemas/V2BusinessWorkspaceTypeResult'
+    V2GetBusinessWorkspaceTypeResult:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          $ref: '#/components/schemas/V2BusinessWorkspaceTypeResult'
+    V2BusinessWorkspaceTypeResult:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/V2BusinessWorkspaceTypeData'
+    V2BusinessWorkspaceTypeData:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/V2BusinessWorkspaceTypeProperties'
+        wksp_info:
+          $ref: '#/components/schemas/V2BusinessWorkspaceTypeInfo'
+    V2BusinessWorkspaceTypeProperties:
+      type: object
+      properties:
+        add_creator_to_lead_role:
+          type: boolean
+        aviator_enabled:
+          type: boolean
+        classification:
+          type: object
+          properties:
+            location:
+              type: string
+              enum: ["None","StaticNodeId","BusinessProperty","CategoryAttribute"]
+            location_value:
+              type: string
+        config_node_id:
+          type: integer
+        external_document_storage:
+          type: object
+          properties:
+            rm_classification:
+              type: object
+              properties:
+                location:
+                  type: string
+                  enum: ["None","StaticNodeId","CategoryAttribute"]
+                location_value:
+                  type: string
+            sub_location_path:
+              type: object
+              properties:
+                location:
+                  type: string
+                  enum: ["None","Pattern"]
+                location_value:
+                  type: string
+        indexing:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            sub_types:
+              type: array
+              items:
+                type: integer
+        relations:
+          type: array
+          description: Relation context information.
+          items:
+               $ref: '#/components/schemas/V2RelationContextInformation'
+        rm_enabled:
+          type: boolean
+        search:
+          type: object
+          properties:
+            follow_related_wksp:
+              type: string
+              enum: ["Disabled","Enabled","AlwaysEnabled"]
+            max_number_of_followed_wksp:
+              type: integer
+        widget_icon:
+          type: object
+          properties:
+            url:
+              type: string
+        wksp_copy_enabled:
+          type: boolean
+        wksp_creation:
+          type: object
+          properties:
+            create_wksp_with_fast_bulk_method:
+              type: boolean
+            directly_open_created_wksp:
+              type: boolean
+            location:
+              type: string
+              enum: ["CurrentNode","StaticNodeId","BusinessProperty", "CategoryAttribute"]
+            location_value:
+              type: string
+            sub_location_path:
+              type: object
+              properties:
+                location:
+                  type: string
+                  enum: ["None",Pattern"]
+                location_value:
+                  type: string
+            use_also_for_manual_creation:
+              type: boolean
+        wksp_creation_enabled:
+          type: boolean
+        wksp_descriptions:
+          type: object
+          properties:
+            en:
+              type: string
+            de:
+              type: string
+        wksp_icon:
+          type: string
+        wksp_name_generation:
+          type: object
+          properties:
+            use_also_for_wksp_without_bo:
+              type: boolean
+            wksp_names:
+              type: object
+              properties:
+                en:
+                  type: string
+                de:
+                  type: string
+        wksp_policies_enabled:
+          type: boolean
+        wksp_type_alias_names:
+          type: object
+          properties:
+            en:
+              type: array
+              items:
+                type: string
+            de:
+              type: array
+              items:
+                type: string
+        wksp_type_id:
+          type: integer
+        wksp_type_key_aspects:
+          type: object
+          properties:
+            en:
+              type: array
+              items:
+                type: string
+            de:
+              type: array
+              items:
+                type: string
+        wksp_type_name:
+          type: string
+        wksp_type_names:
+          type: object
+          properties:
+            en:
+              type: string
+            de:
+              type: string
+    BusinessWorkspaceTypeInfo:
+      type: object
+      properties:
+        icon_url:
+          type: string
+          description: >-
+            URL to the icon image that is configured for the specified workspace
+            type
+        is_policies_enabled:
+          type: boolean
+          description: >-
+            Flag to show whether policies are enabled for business workspaces of
+            that workspace type
+        workspace_type:
+          type: string
+          description: Name of the business workspace type
+    WidgetConfig:
+      type: object
+      properties:
+        dataelementname:
+          type: string
+          description: Business workspace sidebar widget type name
+          enum:
+            - attributes
+            - relatedbusinessworkspaces
+            - recentchanges
+            - businessreference
+            - workitems
+        details:
+          type: string
+          description: >-
+            Business workspace sidebar widget detail configuration (depends on
+            dataelementname)
+        id:
+          type: integer
+          description: >-
+            Internal ID of business workspace sidebar widget configuration
+            entity
+        is_horizontal:
+          type: boolean
+          description: Desired business workspace widget display orientation
+        title:
+          type: string
+          description: Business workspace sidebar widget title
+    BusinessWorkspaceSidebarWidgetsInfo:
+      type: object
+      properties:
+        widgetsConfig:
+          type: array
+          description: Configuration of a single business workspace sidebar widget
+          items:
+            $ref: '#/components/schemas/WidgetConfig'
+    ConfiguredVolumes:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumeInfo'
+    VolumeInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Data ID of the configured volume
+        name:
+          type: string
+          description: Name of the configured volume
+        type:
+          type: integer
+          description: Subtype of the configured volume
+    V2GetFormsWorkspacesCreateResponse:
+      type: object
+      properties:
+        forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/V2FormsCreateResult'
+    V2FormsCreateResult:
+      type: object
+      properties:
+        data:
+          type: object
+          properties: {}
+        options:
+          $ref: '#/components/schemas/JSONOptions'
+        role_name:
+          type: string
+        schema:
+          $ref: '#/components/schemas/JSONSchema'
+    V2GetFormsWorkspaceMetadataUpdateResponse:
+      type: object
+      properties:
+        forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/V2GetFormWorkspaceMetadataUpdateResponse'
+    V2GetFormWorkspaceMetadataUpdateResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties: {}
+        options:
+          $ref: '#/components/schemas/JSONOptions'
+        role_name:
+          type: string
+        schema:
+          $ref: '#/components/schemas/JSONSchema'
+    JSONOptions:
+      type: object
+      properties:
+        fields:
+          type: object
+          properties: {}
+    JSONSchema:
+      type: object
+      properties:
+        properties:
+          type: object
+          properties: {}
+    BusinessWorkspaceRootInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        isLinked:
+          type: boolean
+        type:
+          type: integer
+        workspace_type_id:
+          type: integer
+    V1GetNodesBusinessWorkspaceTypesResponse:
+      type: object
+      properties:
+        businessworkspacetypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/V1GetNodesBusinessWorkspaceTypesElement'
+    V1GetNodesBusinessWorkspaceTypesElement:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        rm_enabled:
+          type: boolean
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/V1GetNodesBusinessWorkspaceTypesTemplate'
+    V1GetNodesBusinessWorkspaceTypesTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        subType:
+          type: integer
+    CreateDocumentRequest:
+      type: object
+      properties:
+        Name:
+          type: string
+          description: Name of the document.
+        Description:
+          type: string
+          description: Description of the document.
+        Categories:
+          type: array
+          description: Categories that should be added to the document.
+          items:
+            $ref: '#/components/schemas/Category'
+    Category:
+      type: object
+      properties:
+        Unique Name:
+          type: string
+          description: Unique name of the category
+        Properties:
+          type: array
+          description: Properties of the category
+          items:
+            $ref: '#/components/schemas/NameValue'
+        Property Groups:
+          type: array
+          description: Property groups of the category
+          items:
+            $ref: '#/components/schemas/NameValues'
+    NameValue:
+      type: object
+      properties:
+        Name:
+          type: array
+          description: >-
+            Name value pair. Replace name with name of the property. Value type
+            according to category definition.
+          items:
+            type: string
+    NameValues:
+      type: object
+      properties:
+        Name:
+          type: array
+          description: Replace name with name of the property group.
+          items:
+            $ref: '#/components/schemas/NameValue'
+    CreateWorkspaceTemplateResponse:
+      type: object
+      properties:
+        NodeId:
+          type: integer
+          description: The node ID of the created document.
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message.
+    V2SearchBusinessWorkspaceRolesPaging:
+      type: object
+      properties:
+        limit:
+          type: integer
+          description: Limit
+        page:
+          type: integer
+          description: Page
+        page_total:
+          type: integer
+          description: Page total
+        range_max:
+          type: integer
+          description: Range max
+        range_min:
+          type: integer
+          description: Range min
+        total_count:
+          type: integer
+          description: Total count
+    V2SearchBusinessWorkspaceRolesResult:
+      type: object
+      properties:
+        collection:
+          type: object
+          properties:
+            paging:
+              $ref: '#/components/schemas/V2SearchBusinessWorkspaceRolesPaging'
+            sorting:
+              $ref: '#/components/schemas/V2SearchBusinessWorkspaceRolesSorting'
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: array
+          description: Results
+          items:
+            $ref: '#/components/schemas/V2SearchBusinessWorkspaceRoleResult'
+    V2SearchBusinessWorkspaceRolesSorting:
+      type: object
+      properties:
+        sort:
+          type: array
+          items:
+            $ref: '#/components/schemas/V2SearchBusinessWorkspaceRolesSort'
+    V2SearchBusinessWorkspaceRolesSort:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Sort parameter name
+        value:
+          type: string
+          description: Sort parameter value
+    V2SearchBusinessWorkspaceRoleResult:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            deleted:
+              type: boolean
+            id:
+              type: integer
+            initials:
+              type: string
+            leader_id:
+              type: integer
+            name:
+              type: string
+            name_formatted:
+              type: string
+            node_id:
+              type: integer
+            type:
+              type: integer
+            type_name:
+              type: string
+    V2AddNodeBusinessWorkspaceRoleResponse:
+      type: object
+      properties:
+        links:
+          $ref: '#/components/schemas/V2DataLinks'
+        results:
+          type: object
+          properties:
+            success:
+              type: integer
+            failure:
+              type: integer
+          description: Results
+    V2RelationContextInformation:
+      type: object
+      properties:
+        target_wksp_type_id:
+          type: integer
+          description: Target business workspace type ID. -1 refers to itself.
+        rel_type:
+          type: string
+          description: Either 'Child' or 'Parent' is supported for the relation type.
+        predicates:
+          type: array
+          items:
+            $ref: '#/components/schemas/V2RelationContextInformationPredicate'
+    V2RelationContextInformationPredicate:
+      type: object
+      description: Relation context predicate information 
+      properties:
+        en:
+          type: string
+          maxLength: 128
+        de:
+          type: string
+          maxLength: 128
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+x-original-swagger-version: '2.0'

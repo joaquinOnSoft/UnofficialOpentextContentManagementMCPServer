@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "otcs-mcp"
+version = "0.1.0"
+description = "MCP server (FastMCP) exposing OpenText Content Management to AI agents"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [{ name = "Joaquín Garzón" }]
+dependencies = [
+    "fastmcp==4.1.4",
+    "httpx==0.28.1",
+    "pydantic-settings==2.16.2",
+    "uvicorn==0.54.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.3",
+    "mypy==2.4.1",
+    "bandit==1.9.4",
+    "pip-audit==2.10.1",
+]
+
+[project.scripts]
+otcs-mcp = "otcs_mcp.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/otcs_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF", "PT", "C4", "PIE", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S104"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests/unit"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: tests that need a real OpenText server (excluded by default)"]
+addopts = "-ra --strict-markers --cov=otcs_mcp --cov-branch --cov-report=term-missing --cov-fail-under=85 -m 'not integration'"
+
+[tool.coverage.run]
+source = ["src/otcs_mcp"]
+branch = true
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "if __name__ == .__main__.:"]
