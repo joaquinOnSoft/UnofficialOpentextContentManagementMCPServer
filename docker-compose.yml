@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Joaquín Garzón
+#
+# HTTP (remote) mode:   docker compose up -d
+# stdio (local) mode:   docker compose run --rm -i otcs-mcp-stdio
+
+services:
+  otcs-mcp:
+    build:
+      context: .
+      target: runtime
+    image: otcs-mcp:latest
+    env_file: .env
+    environment:
+      MCP_TRANSPORT: http
+    ports:
+      - "${MCP_PORT:-8443}:${MCP_PORT:-8443}"
+    volumes:
+      - mcp_certs:/certs
+    networks:
+      - mcp_net
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  otcs-mcp-stdio:
+    profiles: ["stdio"]
+    build:
+      context: .
+      target: runtime
+    image: otcs-mcp:latest
+    env_file: .env
+    environment:
+      MCP_TRANSPORT: stdio
+    stdin_open: true
+    networks:
+      - mcp_net
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      disable: true
+
+networks:
+  mcp_net:
+    name: otcs_mcp_net
+
+volumes:
+  mcp_certs:
+    name: mcp_certs

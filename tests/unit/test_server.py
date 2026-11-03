@@ -12,7 +12,7 @@ from fastmcp import Client, FastMCP
 from fastmcp.exceptions import ToolError
 
 from otcs_mcp.config import Settings
-from otcs_mcp.server import build_server
+from otcs_mcp.server import TOOL_NAMES, build_server
 from otcs_mcp.services.nodes import NodeService
 from tests import payloads
 from tests.conftest import Backend, ClientFactory
@@ -60,6 +60,10 @@ async def test_exactly_the_expected_tools_are_registered(mcp_client: Client[Any]
     tools = await mcp_client.list_tools()
 
     assert [tool.name for tool in tools] == EXPECTED_TOOLS
+
+
+async def test_tool_names_constant_matches_the_registered_tools(mcp_client: Client[Any]) -> None:
+    assert [tool.name for tool in await mcp_client.list_tools()] == list(TOOL_NAMES)
 
 
 async def test_every_tool_is_annotated_read_only_and_declares_an_output_schema(

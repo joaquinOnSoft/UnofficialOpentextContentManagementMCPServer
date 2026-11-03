@@ -24,6 +24,7 @@ from otcs_mcp.errors import (
     OtcsServerError,
     OtcsTimeoutError,
 )
+from otcs_mcp.observability import Metrics, trace_headers_var
 from tests.conftest import PASSWORD, Backend, ClientFactory
 
 NODE_PATH = "/v2/nodes/2000"
@@ -567,3 +568,55 @@ async def test_post_form_json_is_retried_when_read_request_gets_server_error(
 
     assert await client.post_form_json("/v2/search", data={"where": "x"}) == {"ok": 1}
     assert sleeps == [0.5]
+
+
+async def test_trace_context_headers_are_forwarded_to_opentext_when_set(
+    client: OtcsClient, backend: Backend
+) -> None:
+    token = trace_headers_var.set(
+        {
+            "traceparent": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+            "tracestate": "k=v",
+        }
+    )
+    try:
+        await client.get_json(NODE_PATH)
+    finally:
+        trace_headers_var.reset(token)
+
+    request = backend.data_requests[0]
+    assert request.headers["traceparent"].startswith("00-0af7651916cd43dd8448eb211c80319c")
+    assert request.headers["tracestate"] == "k=v"
+    assert request.headers["OTCSTicket"] == "ticket-1"
+
+
+async def test_no_trace_headers_are_sent_when_none_are_set(
+    client: OtcsClient, backend: Backend
+) -> None:
+    await client.get_json(NODE_PATH)
+
+    assert "traceparent" not in backend.data_requests[0].headers
+
+
+async def test_backend_metrics_record_method_status_class_and_errors(
+    settings: Settings, backend: Backend
+) -> None:
+    metrics = Metrics()
+    backend.script = [httpx.Response(404), httpx.ReadTimeout("slow"), httpx.Response(200, json={})]
+    async with OtcsClient(
+        settings.model_copy(update={"otcs_max_retries": 0}),
+        transport=httpx.MockTransport(backend),
+        metrics=metrics,
+    ) as metered:
+        with pytest.raises(OtcsNotFoundError):
+            await metered.get_json(NODE_PATH)
+        with pytest.raises(OtcsTimeoutError):
+            await metered.get_json(NODE_PATH)
+        await metered.get_json(NODE_PATH)
+
+    text = metrics.render()
+    assert 'otcs_mcp_backend_requests_total{method="POST",status="2xx"} 1' in text
+    assert 'otcs_mcp_backend_requests_total{method="GET",status="4xx"} 1' in text
+    assert 'otcs_mcp_backend_requests_total{method="GET",status="error"} 1' in text
+    assert 'otcs_mcp_backend_requests_total{method="GET",status="2xx"} 1' in text
+    assert "ticket-1" not in text

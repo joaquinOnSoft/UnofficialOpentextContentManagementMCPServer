@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from otcs_mcp.config import LogLevel, Settings, Transport, load_settings
+from otcs_mcp.config import LogFormat, LogLevel, Settings, Transport, load_settings
 from otcs_mcp.errors import ConfigError
 
 MIN_ENV = {
@@ -44,6 +44,8 @@ def test_defaults_are_safe_when_only_required_variables_are_set(
     assert settings.tls_auto_generate is True
     assert settings.mcp_allowed_origins == []
     assert settings.mcp_metrics_enabled is False
+    assert settings.mcp_allowed_hosts == ["localhost", "127.0.0.1", "[::1]"]
+    assert settings.log_format is LogFormat.JSON
 
 
 def test_load_settings_reports_every_missing_variable_when_required_ones_are_absent() -> None:
@@ -214,6 +216,7 @@ def test_allowed_origins_are_rejected_when_malformed(
         ("TLS_CERT_DAYS", "0"),
         ("LOG_LEVEL", "LOUD"),
         ("MCP_TRANSPORT", "websocket"),
+        ("LOG_FORMAT", "xml"),
     ],
 )
 def test_out_of_range_values_are_rejected_when_variables_are_invalid(
@@ -284,3 +287,36 @@ def test_settings_constructor_accepts_keyword_arguments_when_used_directly() -> 
     )
 
     assert settings.otcs_api_url == "https://x.example.com/cs/api"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("mcp.example.com", ["mcp.example.com"]),
+        (" LOCALHOST , 10.0.0.5 ,[::1]", ["localhost", "10.0.0.5", "[::1]"]),
+    ],
+)
+def test_allowed_hosts_are_split_and_normalised_when_given_as_comma_list(
+    monkeypatch: pytest.MonkeyPatch, raw: str, expected: list[str]
+) -> None:
+    _set(monkeypatch, {**MIN_ENV, "MCP_ALLOWED_HOSTS": raw})
+
+    assert load_settings(env_file=None).mcp_allowed_hosts == expected
+
+
+@pytest.mark.parametrize(
+    "raw", ["", " , ", "host:8443", "a b", "https://x.example.com", "x/y", "a\nb"]
+)
+def test_allowed_hosts_are_rejected_when_empty_or_not_plain_host_names(
+    monkeypatch: pytest.MonkeyPatch, raw: str
+) -> None:
+    _set(monkeypatch, {**MIN_ENV, "MCP_ALLOWED_HOSTS": raw})
+
+    with pytest.raises(ConfigError, match="MCP_ALLOWED_HOSTS"):
+        load_settings(env_file=None)
+
+
+def test_log_format_text_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set(monkeypatch, {**MIN_ENV, "LOG_FORMAT": "text"})
+
+    assert load_settings(env_file=None).log_format is LogFormat.TEXT

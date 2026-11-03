@@ -15,6 +15,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from otcs_mcp.errors import ConfigError
 
 _ORIGIN_RE = re.compile(r"https?://[^\s/]+")
+_HOST_RE = re.compile(r"[a-z0-9._-]+|\[[0-9a-f:.]+\]")
 
 
 class Transport(StrEnum):
@@ -22,6 +23,13 @@ class Transport(StrEnum):
 
     STDIO = "stdio"
     HTTP = "http"
+
+
+class LogFormat(StrEnum):
+    """Log output formats."""
+
+    JSON = "json"
+    TEXT = "text"
 
 
 class LogLevel(StrEnum):
@@ -52,7 +60,8 @@ class Settings(BaseSettings):
 
     # MCP server
     mcp_transport: Transport = Transport.STDIO
-    mcp_host: str = Field(default="0.0.0.0", min_length=1)  # noqa: S104  # nosec B104 - container default; compose publishes the port explicitly
+    # Container default: compose publishes the port explicitly, only inside its own network.
+    mcp_host: str = Field(default="0.0.0.0", min_length=1)  # noqa: S104  # nosec B104
     mcp_port: int = Field(default=8443, ge=1, le=65535)
     mcp_http_auth_user: str | None = None
     mcp_http_auth_password: SecretStr | None = None
@@ -60,10 +69,14 @@ class Settings(BaseSettings):
     mcp_max_response_items: int = Field(default=50, ge=1, le=500)
     mcp_max_content_bytes: int = Field(default=100_000, ge=1_000, le=2_000_000)
     mcp_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    mcp_allowed_hosts: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["localhost", "127.0.0.1", "[::1]"]
+    )
     mcp_max_body_bytes: int = Field(default=1_048_576, ge=1)
     mcp_rate_limit_per_minute: int = Field(default=120, ge=0)
     mcp_metrics_enabled: bool = False
     log_level: LogLevel = LogLevel.INFO
+    log_format: LogFormat = LogFormat.JSON
 
     # TLS (HTTP transport)
     tls_enabled: bool = True
@@ -94,7 +107,7 @@ class Settings(BaseSettings):
             raise ValueError("must not be empty")
         return value
 
-    @field_validator("mcp_allowed_origins", mode="before")
+    @field_validator("mcp_allowed_origins", "mcp_allowed_hosts", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
         if isinstance(value, str):
@@ -107,6 +120,14 @@ class Settings(BaseSettings):
         normalised = [origin.strip().rstrip("/").lower() for origin in value]
         if any(not _ORIGIN_RE.fullmatch(origin) for origin in normalised):
             raise ValueError("each origin must look like https://host[:port]")
+        return normalised
+
+    @field_validator("mcp_allowed_hosts")
+    @classmethod
+    def _check_hosts(cls, value: list[str]) -> list[str]:
+        normalised = [host.strip().lower() for host in value]
+        if not normalised or any(not _HOST_RE.fullmatch(host) for host in normalised):
+            raise ValueError("must be a comma-separated list of host names or IPs without ports")
         return normalised
 
     @model_validator(mode="after")

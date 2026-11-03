@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from types import TracebackType
@@ -38,6 +39,7 @@ from otcs_mcp.errors import (
     OtcsServerError,
     OtcsTimeoutError,
 )
+from otcs_mcp.observability import Metrics, trace_headers_var
 
 logger = logging.getLogger(__name__)
 
@@ -106,8 +108,12 @@ class OtcsClient:
         *,
         transport: httpx.AsyncBaseTransport | None = None,
         sleep: Sleep = asyncio.sleep,
+        metrics: Metrics | None = None,
+        clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         self._settings = settings
+        self._metrics = metrics
+        self._clock = clock
         self._max_retries = settings.otcs_max_retries
         self._sleep = sleep
         self._http = httpx.AsyncClient(
@@ -307,11 +313,14 @@ class OtcsClient:
         headers: Mapping[str, str] | None,
         max_bytes: int,
     ) -> _RawResponse:
+        request_headers = {**trace_headers_var.get(), **(headers or {})}
+        started = self._clock()
+        status_class = "error"
         try:
             async with (
                 self._semaphore,
                 self._http.stream(
-                    method, path, params=params, data=data, headers=headers
+                    method, path, params=params, data=data, headers=request_headers
                 ) as response,
             ):
                 body = bytearray()
@@ -323,6 +332,7 @@ class OtcsClient:
                         truncated = True
                         break
                     body.extend(chunk)
+                status_class = f"{response.status_code // 100}xx"
                 return _RawResponse(response.status_code, response.headers, bytes(body), truncated)
         except httpx.TimeoutException as exc:
             raise OtcsTimeoutError(
@@ -332,6 +342,9 @@ class OtcsClient:
             raise OtcsConnectionError(
                 "Could not connect to the OpenText server. Check OTCS_BASE_URL and the network."
             ) from exc
+        finally:
+            if self._metrics is not None:
+                self._metrics.observe_backend(method, status_class, self._clock() - started)
 
     async def _backoff(self, attempt: int, retry_after: str | None) -> None:
         delay = min(BACKOFF_BASE_SECONDS * 2**attempt, BACKOFF_CAP_SECONDS)

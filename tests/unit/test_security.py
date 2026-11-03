@@ -352,3 +352,35 @@ def test_search_text_is_rejected_when_empty_not_a_string_too_long_or_has_control
 
 def test_search_text_allows_accents_hyphens_and_wildcards() -> None:
     assert security.validate_search_text("año-fiscal fact*") == "año-fiscal fact*"
+
+
+# ----------------------------------------------------------------- Host header (DNS rebinding)
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [
+        ("localhost", "localhost"),
+        ("LOCALHOST:8443", "localhost"),
+        ("127.0.0.1:80", "127.0.0.1"),
+        ("[::1]:8443", "[::1]"),
+        ("[::1]", "[::1]"),
+        ("[broken", "[broken"),
+        ("2001:db8::1", "2001:db8::1"),
+        ("  mcp.example.com  ", "mcp.example.com"),
+    ],
+)
+def test_host_without_port_strips_port_and_normalises(header: str, expected: str) -> None:
+    assert security.host_without_port(header) == expected
+
+
+@pytest.mark.parametrize("header", ["localhost", "localhost:8443", "LocalHost:1", "[::1]:8443"])
+def test_host_is_allowed_when_it_matches_allowlist_ignoring_port_and_case(header: str) -> None:
+    assert security.is_host_allowed(header, ["localhost", "[::1]"])
+
+
+@pytest.mark.parametrize(
+    "header", [None, "", "evil.example", "localhost.evil.io", "xlocalhost", "127.0.0.1:8443"]
+)
+def test_host_is_rejected_when_missing_or_not_in_allowlist(header: str | None) -> None:
+    assert not security.is_host_allowed(header, ["localhost"])

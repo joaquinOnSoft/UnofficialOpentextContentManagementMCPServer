@@ -13,6 +13,7 @@ from otcs_mcp import __version__
 from otcs_mcp.client import OtcsClient
 from otcs_mcp.config import Settings
 from otcs_mcp.errors import McpServerError
+from otcs_mcp.observability import Metrics, ObservabilityMiddleware
 from otcs_mcp.security import validate_node_id, validate_search_text
 from otcs_mcp.services.nodes import NodeService
 from otcs_mcp.services.workspaces import WorkspaceService
@@ -20,6 +21,19 @@ from otcs_mcp.tools.nodes import register_node_tools
 from otcs_mcp.tools.workspaces import register_workspace_tools
 
 SERVER_NAME = "opentext-content-management"
+TOOL_NAMES = (
+    "search_nodes",
+    "get_node",
+    "list_folder_children",
+    "get_node_categories",
+    "read_document_text",
+    "search_business_workspaces",
+    "get_business_workspace",
+    "list_workspace_related_items",
+    "list_workspace_members",
+    "list_workspace_roles",
+    "list_workspace_types",
+)
 CACHE_TTL_SECONDS = 30
 
 INSTRUCTIONS = (
@@ -56,9 +70,15 @@ def _prompt_topic(value: str) -> str:
         raise PromptError(str(exc)) from exc
 
 
-def build_server(settings: Settings, *, client: OtcsClient | None = None) -> FastMCP:
+def build_server(
+    settings: Settings,
+    *,
+    client: OtcsClient | None = None,
+    metrics: Metrics | None = None,
+) -> FastMCP:
     """Create the MCP server. A client may be injected (tests); otherwise one is created."""
-    otcs = client or OtcsClient(settings)
+    shared_metrics = metrics or Metrics()
+    otcs = client or OtcsClient(settings, metrics=shared_metrics)
 
     @asynccontextmanager
     async def lifespan(_: FastMCP) -> AsyncIterator[None]:
@@ -76,6 +96,7 @@ def build_server(settings: Settings, *, client: OtcsClient | None = None) -> Fas
         cache_ttl=CACHE_TTL_SECONDS,
         cache_scope="private",
     )
+    mcp.add_middleware(ObservabilityMiddleware(shared_metrics, known_tools=TOOL_NAMES))
     register_node_tools(mcp, NodeService(otcs, settings), settings)
     register_workspace_tools(mcp, WorkspaceService(otcs, settings), settings)
 

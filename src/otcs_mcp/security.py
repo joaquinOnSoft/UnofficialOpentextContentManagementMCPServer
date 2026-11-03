@@ -73,6 +73,24 @@ def is_origin_allowed(origin: str | None, allowed_origins: Collection[str]) -> b
     return candidate in {item.strip().rstrip("/").lower() for item in allowed_origins}
 
 
+def host_without_port(host_header: str) -> str:
+    """Return the lower-cased host of a ``Host`` header value, without any port."""
+    host = host_header.strip().lower()
+    if host.startswith("["):
+        end = host.find("]")
+        return host[: end + 1] if end != -1 else host
+    if host.count(":") == 1:
+        return host.split(":", 1)[0]
+    return host
+
+
+def is_host_allowed(host_header: str | None, allowed_hosts: Collection[str]) -> bool:
+    """Protect against DNS rebinding: the ``Host`` header must be an allowed host name."""
+    if not host_header:
+        return False
+    return host_without_port(host_header) in {host.strip().lower() for host in allowed_hosts}
+
+
 def validate_node_id(value: object, field: str = "node_id") -> int:
     """Validate an OpenText node identifier (a positive integer)."""
     if isinstance(value, bool) or not isinstance(value, int):
