@@ -9,6 +9,7 @@ description = "MCP server (FastMCP) exposing OpenText Content Management to AI a
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
+license-files = ["LICENSE.md", "NOTICE"]
 authors = [{ name = "Joaquín Garzón" }]
 dependencies = [
     "fastmcp==4.1.4",
@@ -22,6 +23,7 @@ dev = [
     "pytest==9.2.0",
     "pytest-asyncio==1.4.1",
     "pytest-cov==7.1.0",
+    "pyyaml==6.0.3",
     "ruff==0.17.3",
     "mypy==2.4.1",
     "bandit==1.9.4",
@@ -49,7 +51,11 @@ select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF", "PT", "C4", "PIE
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true  # PyYAML is only imported by the documentation tests
 
 [tool.pytest.ini_options]
 minversion = "9.0"

@@ -1,0 +1,13 @@
+otcs-mcp
+Copyright 2026 Joaquín Garzón
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE.md).
+
+It uses third-party open source software, each under its own license. The
+direct runtime dependencies are FastMCP (Apache-2.0), httpx (BSD-3-Clause),
+pydantic-settings (MIT) and uvicorn (BSD-3-Clause). Their transitive
+dependencies and licenses are listed in requirements.lock.
+
+"OpenText" and "Content Server" are trademarks of Open Text Corporation. This
+project is independent and is not affiliated with, endorsed by or supported by
+Open Text Corporation.

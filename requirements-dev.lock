@@ -215,6 +215,7 @@ python-multipart==0.0.33
     #   mcp
 pyyaml==6.0.3
     # via
+    #   otcs-mcp (pyproject.toml)
     #   bandit
     #   fastmcp-slim
     #   jsonschema-path

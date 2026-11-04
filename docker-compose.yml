@@ -3,6 +3,7 @@
 #
 # HTTP (remote) mode:   docker compose up -d
 # stdio (local) mode:   docker compose run --rm -i otcs-mcp-stdio
+# unit tests:           docker compose --profile test run --rm otcs-mcp-test
 
 services:
   otcs-mcp:
@@ -54,6 +55,15 @@ services:
       - no-new-privileges:true
     healthcheck:
       disable: true
+
+  otcs-mcp-test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test
+    image: otcs-mcp:test
+    command: ["python", "-m", "pytest"]
+    network_mode: "none"
 
 networks:
   mcp_net:
