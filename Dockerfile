@@ -45,6 +45,8 @@ RUN apt-get update \
     && chmod 700 /certs
 COPY --from=builder /opt/venv /opt/venv
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+#The image works, even if the file contains CRLF:
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 WORKDIR /app
 USER app
 EXPOSE 8443

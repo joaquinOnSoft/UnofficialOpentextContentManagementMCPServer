@@ -268,17 +268,45 @@ Extract the certificate and call the HTTPS endpoint with Basic Auth:
 
 ```bash
 docker compose cp otcs-mcp:/certs/server.crt ./server.crt
+```
+#### 1) liveness
 
-# 1) liveness
+**Linux**:   
+
+```bash
 curl --cacert ./server.crt https://localhost:8443/healthz
-# 2) list the tools (replace the credentials with MCP_HTTP_AUTH_USER:MCP_HTTP_AUTH_PASSWORD)
-curl --cacert ./server.crt -u 'mcp_user:YOUR_PASSWORD' \
+```
+
+**Windows (PowerShell)**: 
+
+```bash
+curl.exe --cacert .\server.crt https://localhost:8443/healthz
+```
+
+#### 2) list the tools (replace the credentials with MCP_HTTP_AUTH_USER:MCP_HTTP_AUTH_PASSWORD)
+
+**Linux**: 
+
+```bash
+curl --cacert ./server.crt -u 'MCP_USER:YOUR_PASSWORD' \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
   -H 'Mcp-Method: tools/list' \
   -X POST https://localhost:8443/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}'
+```
+
+**Windows (PowerShell)**:
+
+```bash
+curl.exe --cacert .\server.crt -u 'iberia.ecs.team:Yippee-ki-yay'  `
+  -H 'Content-Type: application/json'  `
+  -H 'Accept: application/json, text/event-stream'  `
+  -H 'MCP-Protocol-Version: 2026-07-28'  `
+  -H 'Mcp-Method: tools/list'  `
+  -X POST https://localhost:8443/mcp  `
+  -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}}}}'
 ```
 
 *Expected:* `ok` for the first call; for the second, a JSON-RPC result whose `tools` array has
