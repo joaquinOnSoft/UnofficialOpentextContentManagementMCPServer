@@ -24,6 +24,8 @@ COPY requirements-dev.lock ./
 RUN pip install -r requirements-dev.lock
 COPY tests ./tests
 COPY docker ./docker
+#Added to fix error executing tests (Copilot)
+COPY docker-compose.yml Dockerfile .env.example .dockerignore .gitignore ./
 RUN python -m pytest
 
 # ---------------------------------------------------------------- runtime

@@ -1,4 +1,4 @@
-# otcs-mcp
+# Unofficial Opentext Content Management MCP Server (otcs-mcp)
 
 A production-minded [Model Context Protocol](https://modelcontextprotocol.io) server that lets
 an AI assistant work with an OpenText Content Management (Content Server / xECM) repository:
