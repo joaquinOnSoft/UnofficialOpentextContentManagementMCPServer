@@ -18,7 +18,7 @@ from otcs_mcp.client import OtcsClient
 from otcs_mcp.config import Settings, Transport
 from otcs_mcp.http_app import build_http_app
 from otcs_mcp.observability import Metrics, correlation_id_var
-from otcs_mcp.server import TOOL_NAMES, build_server
+from otcs_mcp.server import ALL_TOOL_NAMES, TOOL_NAMES, build_server
 from tests import payloads
 from tests.conftest import Backend
 
@@ -299,3 +299,82 @@ def test_tool_call_logs_carry_the_correlation_id_of_the_http_request(
     request_id = response.headers["x-request-id"]
     tool_rows = [cid for message, cid in capture.rows if message == "tool call"]
     assert tool_rows == [request_id]
+
+
+# ----------------------------------------------------------------- write mode over HTTP
+
+
+@pytest.fixture
+def write_web(http_settings: Settings) -> Iterator[tuple[TestClient, Harness]]:
+    harness = Harness(http_settings.model_copy(update={"mcp_read_only": False}))
+    with TestClient(harness.app, base_url="http://localhost") as client:
+        yield client, harness
+
+
+def test_write_tools_are_listed_over_http_only_when_writes_are_enabled(
+    web: TestClient, write_web: tuple[TestClient, Harness]
+) -> None:
+    read_only_names = [t["name"] for t in result_of(rpc(web, "tools/list"))["tools"]]
+    write_names = [t["name"] for t in result_of(rpc(write_web[0], "tools/list"))["tools"]]
+
+    assert read_only_names == list(TOOL_NAMES)
+    assert write_names == list(ALL_TOOL_NAMES)
+
+
+def test_overwrite_without_confirmation_is_refused_over_http_and_opentext_is_not_called(
+    write_web: tuple[TestClient, Harness],
+) -> None:
+    client, harness = write_web
+    arguments = {
+        "node_id": 1,
+        "category_id": 9830,
+        "values": {"9830_2": "x"},
+        "confirm": False,
+    }
+
+    response = rpc(
+        client,
+        "tools/call",
+        {"name": "update_node_category", "arguments": arguments},
+        name="update_node_category",
+    )
+
+    result = result_of(response)
+    assert result["isError"] is True
+    assert "explicitly approved" in result["content"][0]["text"]
+    assert harness.backend.requests == []
+
+
+def test_write_call_still_requires_basic_authentication_over_http(
+    write_web: tuple[TestClient, Harness],
+) -> None:
+    client, harness = write_web
+
+    response = rpc(
+        client,
+        "tools/call",
+        {"name": "create_folder", "arguments": {"parent_id": 2000, "name": "x"}},
+        name="create_folder",
+        auth=None,
+    )
+
+    assert response.status_code == 401
+    assert harness.backend.requests == []
+
+
+def test_create_folder_works_over_http_with_credentials(
+    write_web: tuple[TestClient, Harness],
+) -> None:
+    client, harness = write_web
+    harness.backend.script = [httpx.Response(200, json=payloads.created(9001, name="Reports"))]
+
+    response = rpc(
+        client,
+        "tools/call",
+        {"name": "create_folder", "arguments": {"parent_id": 2000, "name": "Reports"}},
+        name="create_folder",
+    )
+
+    result = result_of(response)
+    assert result["isError"] is False
+    assert result["structuredContent"]["id"] == 9001

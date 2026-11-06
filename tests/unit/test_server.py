@@ -29,6 +29,12 @@ EXPECTED_TOOLS = [
     "list_workspace_members",
     "list_workspace_roles",
     "list_workspace_types",
+    "get_record_classification",
+    "list_node_holds",
+    "list_node_rsis",
+    "list_holds",
+    "get_hold",
+    "list_rsis",
 ]
 
 
@@ -447,3 +453,71 @@ async def test_server_closes_the_opentext_client_on_shutdown(
         assert not client._http.is_closed
 
     assert client._http.is_closed
+
+
+# ----------------------------------------------------------------- Records Management tools
+
+
+async def test_record_tools_return_structured_results(
+    mcp_client: Client[Any], backend: Backend
+) -> None:
+    backend.script = [
+        _json(payloads.rm_classifications([payloads.rm_classification_entry()])),
+        _json(payloads.node_holds([payloads.node_hold_entry()])),
+        _json({"data": [{"class_id": 77, "rsi": "CONTRACT-7Y"}]}),
+        _json(payloads.holds_list([payloads.hold_entry()])),
+        _json({"hold": payloads.hold_entry()}),
+        _json({"results": {"data": {"rsis": [{"RSI": "CONTRACT-7Y"}]}}}),
+    ]
+
+    classification = await _call(mcp_client, "get_record_classification", {"node_id": 123})
+    holds = await _call(mcp_client, "list_node_holds", {"node_id": 123})
+    rsis = await _call(mcp_client, "list_node_rsis", {"node_id": 123})
+    catalog = await _call(mcp_client, "list_holds", {"limit": 10})
+    hold = await _call(mcp_client, "get_hold", {"hold_id": 5})
+    schedule = await _call(mcp_client, "list_rsis", {})
+
+    assert classification["items"][0]["rsi"] == "CONTRACT-7Y"
+    assert holds["items"][0]["hold_name"] == "Litigation 2026"
+    assert rsis["items"][0]["class_id"] == 77
+    assert catalog["items"][0]["id"] == 5
+    assert hold["name"] == "Litigation 2026"
+    assert "untrusted" in hold["notice"]
+    assert schedule["items"] == [{"RSI": "CONTRACT-7Y"}]
+    assert backend.data_requests[3].url.params["limit"] == "10"
+    assert backend.data_requests[5].url.params["page"] == "1"
+
+
+@pytest.mark.parametrize("value", [0, -3, "abc", None, 1.5])
+async def test_record_tools_reject_invalid_ids_without_calling_opentext(
+    mcp_client: Client[Any], backend: Backend, value: object
+) -> None:
+    for tool, argument in (
+        ("get_record_classification", "node_id"),
+        ("list_node_holds", "node_id"),
+        ("list_node_rsis", "node_id"),
+        ("get_hold", "hold_id"),
+    ):
+        with pytest.raises(ToolError):
+            await mcp_client.call_tool(tool, {argument: value})
+
+    assert backend.requests == []
+
+
+async def test_record_tools_clamp_paging_to_the_server_maximum(
+    mcp_client: Client[Any], backend: Backend
+) -> None:
+    backend.script = [_json(payloads.holds_list([]))]
+
+    await _call(mcp_client, "list_holds", {"limit": 5000})
+
+    assert backend.data_requests[0].url.params["limit"] == "50"
+
+
+async def test_record_permission_errors_become_clear_tool_errors(
+    mcp_client: Client[Any], backend: Backend
+) -> None:
+    backend.script = [httpx.Response(403)]
+
+    with pytest.raises(ToolError, match="lacks permission"):
+        await mcp_client.call_tool("list_holds", {})

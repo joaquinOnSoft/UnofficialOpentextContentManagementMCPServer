@@ -17,7 +17,7 @@ import pytest
 import yaml
 
 from otcs_mcp.config import Settings, load_settings
-from otcs_mcp.server import TOOL_NAMES
+from otcs_mcp.server import ALL_TOOL_NAMES, READ_TOOL_NAMES, WRITE_TOOL_NAMES
 
 ROOT = Path(__file__).resolve().parents[2]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -161,16 +161,59 @@ def test_readme_documents_every_tls_variable_and_the_certificate_volume() -> Non
 # ----------------------------------------------------------------- tools
 
 
-def test_readme_catalog_lists_exactly_the_registered_tools() -> None:
+def _catalog_tables() -> dict[str, set[str]]:
     section = README.split("## 8. Catalog", 1)[1].split("**Arguments and example calls**", 1)[0]
-    documented = set(re.findall(r"^\| `([a-z_]+)` \|", section, flags=re.MULTILINE))
+    tables: dict[str, set[str]] = {}
+    for heading, body in re.findall(r"### ([^\n]+)\n(.*?)(?=\n### |\Z)", section, flags=re.S):
+        tables[heading] = set(re.findall(r"^\| `([a-z_]+)` \|", body, flags=re.MULTILINE))
+    return tables
 
-    assert documented == set(TOOL_NAMES)
+
+def test_readme_catalog_lists_exactly_the_registered_tools_split_by_kind() -> None:
+    tables = _catalog_tables()
+    read_documented = (
+        tables["Repository and Business Workspaces (read-only)"]
+        | tables["Records Management (read-only, Records Management REST API 26.4)"]
+    )
+
+    assert read_documented == set(READ_TOOL_NAMES)
+    assert tables["Write tools (only when `MCP_READ_ONLY=false`)"] == set(WRITE_TOOL_NAMES)
 
 
 def test_readme_shows_an_example_call_for_every_tool() -> None:
-    for tool in TOOL_NAMES:
+    for tool in ALL_TOOL_NAMES:
         assert f'"name": "{tool}"' in README, tool
+
+
+def test_readme_states_the_correct_tool_counts() -> None:
+    assert f"**{len(READ_TOOL_NAMES)} read tools**" in README
+    assert f"**{len(WRITE_TOOL_NAMES)} write tools**" in README
+    assert f"Exposes {len(READ_TOOL_NAMES)} task-oriented read tools" in README
+    assert f"the tool list grows to {len(ALL_TOOL_NAMES)}" in README
+
+
+def test_readme_documents_write_mode_safeguards() -> None:
+    section = README.split("### Write mode", 1)[1].split("**Resource.**", 1)[0]
+
+    for token in (
+        "MCP_READ_ONLY=false",
+        "confirm",
+        "destructiveHint",
+        "metadata_token",
+        "never retried",
+        "MCP_MAX_UPLOAD_BYTES",
+        "MCP_MAX_BODY_BYTES",
+        "audit",
+        "not against a real",
+    ):
+        assert token in section, token
+
+
+def test_readme_no_longer_claims_the_server_is_read_only_without_qualification() -> None:
+    assert "There are no write tools in this version" not in README
+    assert "reserved for them" not in README
+    assert "(no Records Management swagger was available)" not in README
+    assert "read-only by default" in README
 
 
 def test_readme_mentions_the_resource_and_prompts() -> None:
@@ -236,3 +279,13 @@ def test_dockerfile_builder_copies_every_file_the_package_metadata_needs() -> No
     for name in needed:
         assert name in copy_line.split(), name
         assert (ROOT / name).is_file(), name
+
+
+def test_readme_smoke_output_and_tools_list_example_match_the_registered_read_tools() -> None:
+    expected = f"OK: protocol 2026-07-28, {len(READ_TOOL_NAMES)} tools: " + ", ".join(
+        READ_TOOL_NAMES
+    )
+
+    assert expected in README
+    assert f"`tools` array has\n{len(READ_TOOL_NAMES)} entries" in README
+    assert not re.search(r"\b11 (tools|entries|read tools)\b", README)

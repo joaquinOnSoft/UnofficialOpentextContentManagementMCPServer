@@ -15,6 +15,7 @@ from otcs_mcp.errors import (
     InvalidInputError,
     OtcsAuthError,
     OtcsBadRequestError,
+    OtcsConflictError,
     OtcsConnectionError,
     OtcsError,
     OtcsNotFoundError,
@@ -331,6 +332,7 @@ async def test_non_idempotent_request_is_not_retried_on_timeout(
         (400, OtcsBadRequestError),
         (403, OtcsPermissionError),
         (404, OtcsNotFoundError),
+        (409, OtcsConflictError),
         (429, OtcsRateLimitError),
         (500, OtcsServerError),
         (503, OtcsServerError),
@@ -620,3 +622,144 @@ async def test_backend_metrics_record_method_status_class_and_errors(
     assert 'otcs_mcp_backend_requests_total{method="GET",status="error"} 1' in text
     assert 'otcs_mcp_backend_requests_total{method="GET",status="2xx"} 1' in text
     assert "ticket-1" not in text
+
+
+# ----------------------------------------------------------------- write requests
+
+
+async def test_write_json_sends_a_form_with_the_ticket_and_parses_the_reply(
+    client: OtcsClient, backend: Backend
+) -> None:
+    backend.script = [httpx.Response(200, json={"results": {"id": 5}})]
+
+    result = await client.write_json("POST", "/v2/nodes", data={"body": '{"type": 0}'})
+
+    assert result == {"results": {"id": 5}}
+    request = backend.data_requests[0]
+    assert request.method == "POST"
+    assert request.headers["OTCSTicket"] == "ticket-1"
+    assert request.headers["content-type"] == "application/x-www-form-urlencoded"
+    assert parse_qs(request.content.decode()) == {"body": ['{"type": 0}']}
+
+
+async def test_write_json_uses_multipart_when_files_are_given(
+    client: OtcsClient, backend: Backend
+) -> None:
+    backend.script = [httpx.Response(200, json={"ok": 1})]
+
+    await client.write_json(
+        "POST",
+        "/v2/nodes",
+        data={"body": '{"name": "a.txt"}'},
+        files={"file": ("a.txt", b"hello world", "text/plain")},
+    )
+
+    request = backend.data_requests[0]
+    assert request.headers["content-type"].startswith("multipart/form-data; boundary=")
+    body = request.content
+    assert b'name="body"' in body
+    assert b'filename="a.txt"' in body
+    assert b"Content-Type: text/plain" in body
+    assert b"hello world" in body
+
+
+async def test_write_json_supports_put(client: OtcsClient, backend: Backend) -> None:
+    await client.write_json("PUT", "/v2/nodes/1/categories/2/", data={"2_3": "x"})
+
+    assert backend.data_requests[0].method == "PUT"
+    assert backend.data_requests[0].url.path.endswith("/v2/nodes/1/categories/2/")
+
+
+@pytest.mark.parametrize("content", [b"", b"  \n"])
+async def test_write_json_returns_an_empty_object_when_the_reply_body_is_empty(
+    client: OtcsClient, backend: Backend, content: bytes
+) -> None:
+    backend.script = [httpx.Response(200, content=content)]
+
+    assert await client.write_json("PUT", "/v2/nodes/1/categories/2/", data={}) == {}
+
+
+@pytest.mark.parametrize("status", [500, 502, 503, 504, 429])
+async def test_write_is_never_retried_after_a_server_error(
+    client: OtcsClient, backend: Backend, sleeps: list[float], status: int
+) -> None:
+    backend.script = [httpx.Response(status), httpx.Response(200, json={})]
+
+    with pytest.raises(OtcsError) as info:
+        await client.write_json("POST", "/v2/nodes", data={"body": "{}"})
+
+    assert info.value.status_code == status
+    assert sleeps == []
+    assert len(backend.data_requests) == 1
+
+
+async def test_write_timeout_is_not_retried_and_warns_that_the_change_may_have_applied(
+    client: OtcsClient, backend: Backend, sleeps: list[float]
+) -> None:
+    backend.script = [httpx.ReadTimeout("slow"), httpx.Response(200, json={})]
+
+    with pytest.raises(OtcsTimeoutError, match="may or may not have been applied"):
+        await client.write_json("POST", "/v2/nodes", data={"body": "{}"})
+
+    assert sleeps == []
+    assert len(backend.data_requests) == 1
+
+
+async def test_write_connection_error_is_not_retried(
+    client: OtcsClient, backend: Backend, sleeps: list[float]
+) -> None:
+    backend.script = [httpx.ConnectError("refused")]
+
+    with pytest.raises(OtcsConnectionError):
+        await client.write_json("POST", "/v2/nodes", data={"body": "{}"})
+
+    assert sleeps == []
+
+
+async def test_write_is_resent_once_with_the_same_content_after_a_401_renewal(
+    client: OtcsClient, backend: Backend
+) -> None:
+    backend.expired = {"ticket-1"}
+
+    await client.write_json(
+        "POST",
+        "/v2/nodes",
+        data={"body": '{"name": "a"}'},
+        files={"file": ("a.txt", b"payload", "text/plain")},
+    )
+
+    first, second = backend.data_requests
+    assert (first.headers["OTCSTicket"], second.headers["OTCSTicket"]) == ("ticket-1", "ticket-2")
+    assert b"payload" in first.content
+    assert b"payload" in second.content
+    assert len(backend.auth_requests) == 2
+
+
+async def test_write_conflict_maps_to_a_conflict_error_with_guidance(
+    client: OtcsClient, backend: Backend
+) -> None:
+    backend.script = [httpx.Response(409)]
+
+    with pytest.raises(OtcsConflictError, match="metadata_token") as info:
+        await client.write_json("PUT", "/v2/nodes/1/categories/2/", data={})
+
+    assert info.value.status_code == 409
+
+
+async def test_write_rejects_unsafe_paths_without_sending_anything(
+    client: OtcsClient, backend: Backend
+) -> None:
+    with pytest.raises(InvalidInputError):
+        await client.write_json("POST", "/v2/../admin", data={})
+
+    assert backend.requests == []
+
+
+async def test_oversized_write_reply_is_rejected(
+    client: OtcsClient, backend: Backend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(client_module, "MAX_JSON_BYTES", 10)
+    backend.script = [httpx.Response(200, content=b"x" * 100)]
+
+    with pytest.raises(OtcsResponseError, match="maximum allowed size"):
+        await client.write_json("POST", "/v2/nodes", data={})

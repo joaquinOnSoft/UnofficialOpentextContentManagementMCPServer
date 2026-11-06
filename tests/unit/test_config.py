@@ -38,6 +38,7 @@ def test_defaults_are_safe_when_only_required_variables_are_set(
     assert settings.otcs_verify_ssl is True
     assert settings.mcp_max_response_items == 50
     assert settings.mcp_max_content_bytes == 100_000
+    assert settings.mcp_max_upload_bytes == 500_000
     assert settings.mcp_port == 8443
     assert settings.log_level is LogLevel.INFO
     assert settings.tls_enabled is True
@@ -211,6 +212,8 @@ def test_allowed_origins_are_rejected_when_malformed(
         ("OTCS_MAX_RETRIES", "9"),
         ("MCP_MAX_RESPONSE_ITEMS", "0"),
         ("MCP_MAX_CONTENT_BYTES", "10"),
+        ("MCP_MAX_UPLOAD_BYTES", "10"),
+        ("MCP_MAX_UPLOAD_BYTES", "999999999"),
         ("MCP_MAX_BODY_BYTES", "0"),
         ("MCP_RATE_LIMIT_PER_MINUTE", "-1"),
         ("TLS_CERT_DAYS", "0"),
@@ -320,3 +323,47 @@ def test_log_format_text_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
     _set(monkeypatch, {**MIN_ENV, "LOG_FORMAT": "text"})
 
     assert load_settings(env_file=None).log_format is LogFormat.TEXT
+
+
+def test_no_upload_warning_in_read_only_mode_even_when_the_limit_exceeds_the_body_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set(monkeypatch, {**HTTP_ENV, "MCP_MAX_UPLOAD_BYTES": "5000000", "TLS_ENABLED": "true"})
+
+    warnings = load_settings(env_file=None).security_warnings()
+
+    assert not any("MCP_MAX_UPLOAD_BYTES" in warning for warning in warnings)
+
+
+def test_upload_limit_warning_appears_when_writes_are_enabled_over_http_and_base64_does_not_fit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set(
+        monkeypatch,
+        {**HTTP_ENV, "MCP_READ_ONLY": "false", "MCP_MAX_UPLOAD_BYTES": "900000"},
+    )
+
+    warnings = load_settings(env_file=None).security_warnings()
+
+    assert any("MCP_MAX_UPLOAD_BYTES" in warning and "413" in warning for warning in warnings)
+    assert any("MCP_READ_ONLY=false" in warning for warning in warnings)
+
+
+def test_no_upload_warning_when_base64_upload_fits_in_the_body_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set(monkeypatch, {**HTTP_ENV, "MCP_READ_ONLY": "false"})
+
+    warnings = load_settings(env_file=None).security_warnings()
+
+    assert not any("MCP_MAX_UPLOAD_BYTES" in warning for warning in warnings)
+
+
+def test_no_upload_warning_over_stdio_where_there_is_no_body_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set(monkeypatch, {**MIN_ENV, "MCP_READ_ONLY": "false", "MCP_MAX_UPLOAD_BYTES": "40000000"})
+
+    warnings = load_settings(env_file=None).security_warnings()
+
+    assert not any("MCP_MAX_UPLOAD_BYTES" in warning for warning in warnings)

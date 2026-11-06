@@ -241,3 +241,17 @@ def test_filter_renders_and_masks_tracebacks_that_no_other_handler_formatted() -
     assert record.exc_text is not None
     assert "hunter22" not in record.exc_text
     assert "token *** rejected" in record.exc_text
+
+
+def test_audit_fields_of_write_operations_appear_in_the_json_log(log_settings: Settings) -> None:
+    stream = io.StringIO()
+    configure_logging(log_settings, stream=stream)
+
+    logging.getLogger("demo").info(
+        "write operation",
+        extra={"operation": "create_folder", "target_id": 9001, "folder_title": "dropped"},
+    )
+
+    record = json.loads(_lines(stream)[0])
+    assert (record["operation"], record["target_id"]) == ("create_folder", 9001)
+    assert "folder_title" not in record

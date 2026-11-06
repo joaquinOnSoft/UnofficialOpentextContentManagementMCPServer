@@ -174,3 +174,46 @@ def test_build_page_handles_an_empty_result_list() -> None:
 
     assert page.items == []
     assert page.has_more is False
+
+
+# ----------------------------------------------------------------- sanitize_json
+
+
+def test_sanitize_json_keeps_plain_scalars_unchanged() -> None:
+    assert shapes.sanitize_json({"a": 1, "b": 2.5, "c": True, "d": None, "e": "ok"}) == {
+        "a": 1,
+        "b": 2.5,
+        "c": True,
+        "d": None,
+        "e": "ok",
+    }
+
+
+def test_sanitize_json_strips_control_characters_and_clips_long_strings() -> None:
+    result = shapes.sanitize_json({"k\x00ey": "va\x1blue" + "x" * 100}, text_limit=10)
+
+    assert list(result) == ["k ey"]
+    assert len(result["k ey"]) == 10
+    assert result["k ey"].endswith("…")
+
+
+def test_sanitize_json_caps_containers_and_depth() -> None:
+    wide = {str(i): i for i in range(shapes.MAX_JSON_ITEMS + 20)}
+    nested: object = "leaf"
+    for _ in range(shapes.MAX_JSON_DEPTH + 3):
+        nested = [nested]
+
+    assert len(shapes.sanitize_json(wide)) == shapes.MAX_JSON_ITEMS
+    assert len(shapes.sanitize_json(list(range(500)))) == shapes.MAX_JSON_ITEMS
+    flattened = shapes.sanitize_json(nested)
+    depth = 0
+    while isinstance(flattened, list):
+        flattened = flattened[0]
+        depth += 1
+    assert flattened is None
+    assert depth == shapes.MAX_JSON_DEPTH + 1
+
+
+def test_sanitize_json_converts_unknown_objects_to_clean_text() -> None:
+    assert shapes.sanitize_json(object(), text_limit=5) is not None
+    assert shapes.sanitize_json({"b": b"bytes"}) == {"b": "b'bytes'"}

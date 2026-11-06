@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 DESCRIPTION_LIMIT = 500
 SUMMARY_LIMIT = 300
 NAME_LIMIT = 300
+MAX_JSON_DEPTH = 6
+MAX_JSON_ITEMS = 50
 
 
 def clean_text(value: object, limit: int = DESCRIPTION_LIMIT) -> str | None:
@@ -33,6 +35,26 @@ def clean_text(value: object, limit: int = DESCRIPTION_LIMIT) -> str | None:
     if not text:
         return None
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def sanitize_json(value: object, text_limit: int = 2000, *, _depth: int = 0) -> Any:
+    """Return a bounded copy of arbitrary JSON: clipped strings, capped containers and depth."""
+    if _depth > MAX_JSON_DEPTH:
+        return None
+    if isinstance(value, str):
+        return clean_text(value, text_limit) or ""
+    if isinstance(value, dict):
+        return {
+            (clean_text(key, 200) or ""): sanitize_json(item, text_limit, _depth=_depth + 1)
+            for key, item in list(value.items())[:MAX_JSON_ITEMS]
+        }
+    if isinstance(value, list):
+        return [
+            sanitize_json(item, text_limit, _depth=_depth + 1) for item in value[:MAX_JSON_ITEMS]
+        ]
+    if value is None or isinstance(value, bool | int | float):
+        return value
+    return clean_text(value, text_limit)
 
 
 def as_int(value: object) -> int | None:

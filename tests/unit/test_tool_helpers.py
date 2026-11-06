@@ -9,6 +9,7 @@ from fastmcp.exceptions import ToolError
 from otcs_mcp.config import Settings
 from otcs_mcp.tools import common
 from otcs_mcp.tools import nodes as node_tools
+from otcs_mcp.tools import records as record_tools
 from otcs_mcp.tools import workspaces as workspace_tools
 
 
@@ -55,3 +56,20 @@ def test_optional_text_raises_tool_error_when_value_is_unsafe(value: object) -> 
 def test_optional_text_passes_none_through_and_strips_text() -> None:
     assert common.optional_text(None, "name_filter") is None
     assert common.optional_text("  abc ", "name_filter") == "abc"
+
+
+@pytest.mark.parametrize("value", [0, -1, True, "7", None])
+def test_record_id_validator_raises_tool_error_when_value_is_not_a_positive_integer(
+    value: object,
+) -> None:
+    with pytest.raises(ToolError, match="hold_id"):
+        record_tools._id(value, "hold_id")
+
+
+def test_checked_helper_passes_valid_values_through_and_wraps_validation_errors() -> None:
+    from otcs_mcp.security import validate_node_name
+    from otcs_mcp.tools.writes import _checked
+
+    assert _checked(validate_node_name, " ok ") == "ok"
+    with pytest.raises(ToolError, match="name"):
+        _checked(validate_node_name, "a/b")

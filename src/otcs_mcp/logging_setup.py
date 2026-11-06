@@ -16,7 +16,17 @@ from otcs_mcp.observability import correlation_id_var
 REDACTED = "***"
 MIN_SECRET_LENGTH = 4  # shorter values would mangle ordinary words in every log line
 FRAMEWORK_LOGGERS = ("fastmcp",)
-_EXTRA_FIELDS = ("tool", "outcome", "seconds", "method", "path", "status", "client")
+_EXTRA_FIELDS = (
+    "tool",
+    "outcome",
+    "seconds",
+    "method",
+    "path",
+    "status",
+    "client",
+    "operation",
+    "target_id",
+)
 _STANDARD_ATTRS = frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
 
 

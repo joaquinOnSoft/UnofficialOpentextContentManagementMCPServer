@@ -21,7 +21,7 @@ import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 import httpx
 
@@ -30,6 +30,7 @@ from otcs_mcp.errors import (
     InvalidInputError,
     OtcsAuthError,
     OtcsBadRequestError,
+    OtcsConflictError,
     OtcsConnectionError,
     OtcsError,
     OtcsNotFoundError,
@@ -56,6 +57,7 @@ _SAFE_PATH_RE = re.compile(r"/[A-Za-z0-9._~!$&'()*+,;=:@/-]*")
 
 Sleep = Callable[[float], Awaitable[None]]
 ParamValue = str | int | float | bool | None | Sequence[str | int | float | bool]
+UploadFiles = Mapping[str, tuple[str, bytes, str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +169,39 @@ class OtcsClient:
         )
         return self._parse_json(response)
 
+    async def write_json(
+        self,
+        method: Literal["POST", "PUT"],
+        path: str,
+        *,
+        data: Mapping[str, str],
+        files: UploadFiles | None = None,
+    ) -> Any:
+        """Send a state-changing request and return the parsed JSON (``{}`` if the body is empty).
+
+        Unlike reads it is never retried after OpenText may have processed it: a
+        timeout, a connection error or a 5xx surfaces immediately. The only resend is
+        after HTTP 401, where the request was rejected before any processing.
+        """
+        try:
+            response = await self._authorized_request(
+                method,
+                path,
+                params=None,
+                data=data,
+                files=files,
+                max_bytes=MAX_JSON_BYTES,
+                idempotent=False,
+            )
+        except OtcsTimeoutError as exc:
+            raise OtcsTimeoutError(
+                "The request to OpenText timed out; the change may or may not have been "
+                "applied. Check the repository before retrying."
+            ) from exc
+        if not response.truncated and not response.body.strip():
+            return {}
+        return self._parse_json(response)
+
     @staticmethod
     def _parse_json(response: _RawResponse) -> Any:
         if response.truncated:
@@ -248,6 +283,8 @@ class OtcsClient:
         data: Mapping[str, str] | None,
         max_bytes: int,
         accept: str | None = None,
+        files: UploadFiles | None = None,
+        idempotent: bool = True,
     ) -> _RawResponse:
         _check_path(path)
         headers = {"Accept": accept} if accept else {}
@@ -259,9 +296,10 @@ class OtcsClient:
                 path,
                 params=_clean_params(params),
                 data=data,
+                files=files,
                 headers={**headers, TICKET_HEADER: ticket},
                 max_bytes=max_bytes,
-                idempotent=True,  # only read operations are routed through this method
+                idempotent=idempotent,
             )
             if response.status_code == 401 and not renewed:
                 logger.info("OpenText rejected the ticket; renewing it once")
@@ -279,13 +317,20 @@ class OtcsClient:
         idempotent: bool,
         params: dict[str, Any] | None = None,
         data: Mapping[str, str] | None = None,
+        files: UploadFiles | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> _RawResponse:
         attempt = 0
         while True:
             try:
                 response = await self._send_once(
-                    method, path, params=params, data=data, headers=headers, max_bytes=max_bytes
+                    method,
+                    path,
+                    params=params,
+                    data=data,
+                    files=files,
+                    headers=headers,
+                    max_bytes=max_bytes,
                 )
             except (OtcsTimeoutError, OtcsConnectionError):
                 if not idempotent or attempt >= self._max_retries:
@@ -310,6 +355,7 @@ class OtcsClient:
         *,
         params: dict[str, Any] | None,
         data: Mapping[str, str] | None,
+        files: UploadFiles | None,
         headers: Mapping[str, str] | None,
         max_bytes: int,
     ) -> _RawResponse:
@@ -320,7 +366,7 @@ class OtcsClient:
             async with (
                 self._semaphore,
                 self._http.stream(
-                    method, path, params=params, data=data, headers=request_headers
+                    method, path, params=params, data=data, files=files, headers=request_headers
                 ) as response,
             ):
                 body = bytearray()
@@ -385,6 +431,12 @@ class OtcsClient:
         elif status == 404:
             error = OtcsNotFoundError(
                 "The requested OpenText resource was not found (HTTP 404).", status_code=status
+            )
+        elif status == 409:
+            error = OtcsConflictError(
+                "OpenText reports an edit conflict (HTTP 409): the data changed after it was "
+                "read. Read it again and retry with the new metadata_token.",
+                status_code=status,
             )
         elif status == 429:
             error = OtcsRateLimitError(

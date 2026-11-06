@@ -44,6 +44,10 @@ class OtcsNotFoundError(OtcsError):
     """The requested resource does not exist (HTTP 404)."""
 
 
+class OtcsConflictError(OtcsError):
+    """The change conflicts with a concurrent edit (HTTP 409)."""
+
+
 class OtcsBadRequestError(OtcsError):
     """OpenText rejected the request as invalid (HTTP 400)."""
 

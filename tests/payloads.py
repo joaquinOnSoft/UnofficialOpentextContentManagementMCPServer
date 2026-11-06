@@ -130,3 +130,89 @@ def workspace_types(entries: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "results": [{"data": {"properties": e, "wksp_info": {"in_use": True}}} for e in entries]
     }
+
+
+def created(node_id: int = 9001, **overrides: Any) -> dict[str, Any]:
+    """Reply of POST /v2/nodes (results.data.properties, as in the swagger)."""
+    props = node_props(node_id, name="New Folder", type=0, type_name="Folder", parent_id=2000)
+    props.update(overrides)
+    return {"results": {"data": {"properties": props}}}
+
+
+def rm_classifications(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    return {"canFinalize": True, "data": entries}
+
+
+def rm_classification_entry(**overrides: Any) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "rmclassification_id": 77,
+        "name": "Contracts 2026",
+        "file_number": "C-2026-001",
+        "rsi": "CONTRACT-7Y",
+        "file_status": "Active",
+        "status_date": "2026-01-10",
+        "record_date": "2026-01-02",
+        "essential": "Vital",
+        "official": True,
+        "last_review_date": "2026-02-01",
+        "next_review_date": "2027-02-01",
+        "accession": "ACC-1",
+        "subject": "Supplier contract",
+        "record_officer_name": "Ana Lopez",
+        "records_manager_name": "Luis Perez",
+        "inherit_from": False,
+        "is_primary": True,
+        "management_type": "RM",
+        "extradata": "{internal}",
+    }
+    entry.update(overrides)
+    return entry
+
+
+def node_holds(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    return {"data": entries}
+
+
+def node_hold_entry(**overrides: Any) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "hold_id": 5,
+        "hold_name": "Litigation 2026",
+        "hold_type": "Legal",
+        "active": True,
+        "applied_by": "ana",
+        "date_applied": "2026-03-01",
+        "hold_comment": "Do not dispose",
+        "hold_appliedmethod": "Manual",
+        "removable": True,
+    }
+    entry.update(overrides)
+    return entry
+
+
+def hold_entry(**overrides: Any) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "HoldID": 5,
+        "HoldName": "Litigation 2026",
+        "ActiveHold": 1,
+        "HoldType": "Legal",
+        "HoldComment": "Do not dispose",
+        "ApplyPatron": "ana",
+        "DateApplied": "2026-03-01",
+        "DateToRemove": "",
+        "DateRemoved": "",
+        "ParentID": 3,
+    }
+    entry.update(overrides)
+    return entry
+
+
+def holds_list(
+    entries: list[dict[str, Any]], *, page: int = 1, page_total: int | None = 1
+) -> dict[str, Any]:
+    paging: dict[str, Any] = {"page": page, "limit": 25, "total_count": len(entries)}
+    if page_total is not None:
+        paging["page_total"] = page_total
+    return {
+        "collection": {"paging": paging},
+        "results": {"data": {"holds": entries}},
+    }

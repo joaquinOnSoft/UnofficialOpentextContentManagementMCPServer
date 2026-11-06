@@ -13,7 +13,7 @@ import secrets
 import time
 import unicodedata
 from collections import deque
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Mapping
 
 from otcs_mcp.errors import InvalidInputError
 
@@ -21,8 +21,16 @@ MAX_AUTH_HEADER_LENGTH = 8192
 MAX_NODE_ID = 2**63 - 1
 UNTRUSTED_TAG = "untrusted_content"
 
+MAX_NODE_NAME_LENGTH = 248
+MAX_DESCRIPTION_LENGTH = 1000
+MAX_CATEGORY_VALUES = 50
+MAX_CATEGORY_VALUE_LENGTH = 1000
+NODE_NAME_FORBIDDEN_CHARS = frozenset('/\\:*?"<>|')
 SEARCH_FORBIDDEN_CHARS = frozenset('"():[]{}\\<>=~^|')
 
+_MIME_RE = re.compile(r"[a-z0-9][a-z0-9!#$&^_.+-]{0,63}/[a-z0-9][a-z0-9!#$&^_.+-]{0,63}")
+_CATEGORY_KEY_RE = re.compile(r"(\d{1,18})_(\d{1,18})")
+_TOKEN_RE = re.compile(r"[A-Za-z0-9]{8,64}")
 _SOURCE_RE = re.compile(r"[a-z0-9_.-]{1,32}")
 _TAG_RE = re.compile(rf"<(/?)({UNTRUSTED_TAG})", re.IGNORECASE)
 
@@ -126,6 +134,104 @@ def validate_search_text(value: object, *, field: str = "query", max_length: int
         forbidden = " ".join(sorted(SEARCH_FORBIDDEN_CHARS))
         raise InvalidInputError(field, f"must be plain words without any of: {forbidden}")
     return text
+
+
+def validate_node_name(value: object, field: str = "name") -> str:
+    """Validate the name of a node to create (also used as the uploaded file name)."""
+    text = validate_text(value, field=field, max_length=MAX_NODE_NAME_LENGTH)
+    if any(char in NODE_NAME_FORBIDDEN_CHARS for char in text):
+        forbidden = " ".join(sorted(NODE_NAME_FORBIDDEN_CHARS))
+        raise InvalidInputError(field, f"must not contain any of: {forbidden}")
+    if set(text) == {"."}:
+        raise InvalidInputError(field, "must not consist only of dots")
+    return text
+
+
+def validate_description(value: object, field: str = "description") -> str | None:
+    """Validate an optional node description; blank text becomes ``None``."""
+    if value is None:
+        return None
+    text = validate_text(value, field=field, max_length=MAX_DESCRIPTION_LENGTH, allow_empty=True)
+    return text or None
+
+
+def validate_mime_type(value: object, field: str = "mime_type") -> str | None:
+    """Validate an optional ``type/subtype`` media type."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not _MIME_RE.fullmatch(value.strip().lower()):
+        raise InvalidInputError(field, "must look like type/subtype, e.g. application/pdf")
+    return value.strip().lower()
+
+
+def validate_confirmation(confirm: object) -> None:
+    """Require an explicit ``true`` for operations that overwrite existing data."""
+    if confirm is not True:
+        raise InvalidInputError(
+            "confirm", "must be true; set it only after the user explicitly approved this change"
+        )
+
+
+def validate_metadata_token(value: object, field: str = "metadata_token") -> str | None:
+    """Validate an optional OpenText metadata state token."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not _TOKEN_RE.fullmatch(value):
+        raise InvalidInputError(field, "must be an alphanumeric token of 8 to 64 characters")
+    return value
+
+
+def validate_category_values(category_id: int, values: object) -> dict[str, str]:
+    """Validate ``{"<category>_<attribute>": "text"}`` updates for one category.
+
+    Every key must belong to ``category_id`` (no cross-category writes); attribute 1
+    is reserved by OpenText for the metadata token; complex keys such as set rows or
+    multilingual values are not supported.
+    """
+    if not isinstance(values, Mapping) or not values:
+        raise InvalidInputError("values", "must be a non-empty object of attribute values")
+    if len(values) > MAX_CATEGORY_VALUES:
+        raise InvalidInputError("values", f"must contain at most {MAX_CATEGORY_VALUES} entries")
+    cleaned: dict[str, str] = {}
+    for key, value in values.items():
+        match = _CATEGORY_KEY_RE.fullmatch(key) if isinstance(key, str) else None
+        if match is None or match.group(1) != str(category_id):
+            raise InvalidInputError(
+                "values", f"keys must look like '{category_id}_<attribute id>' for this category"
+            )
+        if match.group(2) == "1":
+            raise InvalidInputError(
+                "values", "attribute 1 is reserved for the metadata token; use metadata_token"
+            )
+        cleaned[key] = validate_text(
+            value, field=f"values.{key}", max_length=MAX_CATEGORY_VALUE_LENGTH, allow_empty=True
+        )
+    return cleaned
+
+
+def decode_upload(content_text: object, content_base64: object, max_bytes: int) -> bytes:
+    """Return the bytes to upload from exactly one of ``content_text``/``content_base64``."""
+    if (content_text is None) == (content_base64 is None):
+        raise InvalidInputError("content", "provide exactly one of content_text or content_base64")
+    if content_text is not None:
+        if not isinstance(content_text, str):
+            raise InvalidInputError("content_text", "must be a string")
+        data = content_text.encode("utf-8")
+    else:
+        if not isinstance(content_base64, str):
+            raise InvalidInputError("content_base64", "must be a string")
+        compact = "".join(content_base64.split())
+        if len(compact) * 3 // 4 > max_bytes + 2:  # reject before decoding anything large
+            raise InvalidInputError("content_base64", f"must decode to at most {max_bytes} bytes")
+        try:
+            data = base64.b64decode(compact, validate=True)
+        except ValueError:
+            raise InvalidInputError("content_base64", "must be valid base64") from None
+    if not data:
+        raise InvalidInputError("content", "must not be empty")
+    if len(data) > max_bytes:
+        raise InvalidInputError("content", f"must be at most {max_bytes} bytes")
+    return data
 
 
 def validate_choice(value: object, allowed: Collection[str], field: str) -> str:

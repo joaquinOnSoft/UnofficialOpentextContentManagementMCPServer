@@ -23,7 +23,7 @@ test:
 # Security modules must keep 100 % line and branch coverage.
 test-security:
 	$(PYTHON) -m pytest -q --no-cov-on-fail --cov-fail-under=0 --cov-report= && \
-	$(PYTHON) -m coverage report --include="*/otcs_mcp/security.py,*/otcs_mcp/config.py,*/otcs_mcp/tools/common.py,*/otcs_mcp/http_app.py,*/otcs_mcp/logging_setup.py,*/otcs_mcp/tls.py" --fail-under=100
+	$(PYTHON) -m coverage report --include="*/otcs_mcp/security.py,*/otcs_mcp/config.py,*/otcs_mcp/tools/common.py,*/otcs_mcp/tools/writes.py,*/otcs_mcp/http_app.py,*/otcs_mcp/logging_setup.py,*/otcs_mcp/tls.py" --fail-under=100
 
 audit:
 	$(PYTHON) -m pip_audit

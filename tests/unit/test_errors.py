@@ -13,6 +13,7 @@ from otcs_mcp import errors
         errors.OtcsPermissionError,
         errors.OtcsNotFoundError,
         errors.OtcsBadRequestError,
+        errors.OtcsConflictError,
         errors.OtcsRateLimitError,
         errors.OtcsServerError,
         errors.OtcsTimeoutError,

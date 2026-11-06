@@ -29,6 +29,7 @@ from otcs_mcp.services.shapes import (
     item_properties,
     paging_of,
     result_items,
+    sanitize_json,
 )
 
 logger = logging.getLogger(__name__)
@@ -171,7 +172,9 @@ class NodeService:
                 entries.append(data)
         truncated = len(entries) > MAX_CATEGORY_ENTRIES
         return CategoriesResult(
-            node_id=node_id, categories=entries[:MAX_CATEGORY_ENTRIES], truncated=truncated
+            node_id=node_id,
+            categories=[sanitize_json(entry) for entry in entries[:MAX_CATEGORY_ENTRIES]],
+            truncated=truncated,
         )
 
     async def read_text(self, node_id: int, *, max_bytes: int) -> DocumentText:

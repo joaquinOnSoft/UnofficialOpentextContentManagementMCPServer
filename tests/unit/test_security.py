@@ -384,3 +384,211 @@ def test_host_is_allowed_when_it_matches_allowlist_ignoring_port_and_case(header
 )
 def test_host_is_rejected_when_missing_or_not_in_allowlist(header: str | None) -> None:
     assert not security.is_host_allowed(header, ["localhost"])
+
+
+# ---- write inputs: names, text, tokens
+
+
+@pytest.mark.parametrize(
+    "name", ["Contracts", "report 2026.pdf", "año fiscal", "a" * 248, "x.y.z", ".hidden"]
+)
+def test_node_name_is_accepted_when_it_is_plain_text(name: str) -> None:
+    assert security.validate_node_name(name) == name
+
+
+@pytest.mark.parametrize("char", sorted(security.NODE_NAME_FORBIDDEN_CHARS))
+def test_node_name_is_rejected_when_it_contains_a_forbidden_character(char: str) -> None:
+    with pytest.raises(InvalidInputError, match="must not contain any of"):
+        security.validate_node_name(f"a{char}b")
+
+
+@pytest.mark.parametrize(
+    "name", [".", "..", "...", "", "   ", "a" * 249, "a\x00b", "a\nb", None, 7]
+)
+def test_node_name_is_rejected_when_empty_dots_too_long_or_not_text(name: object) -> None:
+    with pytest.raises(InvalidInputError):
+        security.validate_node_name(name)
+
+
+def test_node_name_traversal_attempts_are_rejected() -> None:
+    for attempt in ("../etc/passwd", "..\\windows", "a/../b", "/abs"):
+        with pytest.raises(InvalidInputError):
+            security.validate_node_name(attempt)
+
+
+def test_description_is_none_when_missing_or_blank_and_stripped_otherwise() -> None:
+    assert security.validate_description(None) is None
+    assert security.validate_description("   ") is None
+    assert security.validate_description("  hello ") == "hello"
+
+
+@pytest.mark.parametrize("value", ["x" * 1001, "a\nb", "a\x00b", 5])
+def test_description_is_rejected_when_too_long_or_unsafe(value: object) -> None:
+    with pytest.raises(InvalidInputError):
+        security.validate_description(value)
+
+
+@pytest.mark.parametrize(
+    "value", ["application/pdf", " Text/Plain ", "application/vnd.ms-excel", "image/svg+xml"]
+)
+def test_mime_type_is_normalised_when_valid(value: str) -> None:
+    assert security.validate_mime_type(value) == value.strip().lower()
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["pdf", "a/b/c", "text/plain; charset=utf-8", "te xt/plain", "/x", "x/", "a\nb/c", "", 5],
+)
+def test_mime_type_is_rejected_when_malformed(value: object) -> None:
+    with pytest.raises(InvalidInputError, match="type/subtype"):
+        security.validate_mime_type(value)
+
+
+def test_mime_type_is_none_when_missing() -> None:
+    assert security.validate_mime_type(None) is None
+
+
+def test_confirmation_is_accepted_only_for_boolean_true() -> None:
+    security.validate_confirmation(True)
+
+
+@pytest.mark.parametrize("value", [False, None, 1, "true", "yes", [True], 0])
+def test_confirmation_is_rejected_for_anything_but_boolean_true(value: object) -> None:
+    with pytest.raises(InvalidInputError, match="explicitly approved") as info:
+        security.validate_confirmation(value)
+
+    assert info.value.field == "confirm"
+
+
+def test_metadata_token_is_none_when_missing_and_accepted_when_alphanumeric() -> None:
+    assert security.validate_metadata_token(None) is None
+    assert security.validate_metadata_token("9ec9bcab09f9963db044ff6749e5c5c2") == (
+        "9ec9bcab09f9963db044ff6749e5c5c2"
+    )
+
+
+@pytest.mark.parametrize(
+    "value", ["short", "x" * 65, "has space1", "tok;en123", "a\nb12345", 5, ""]
+)
+def test_metadata_token_is_rejected_when_malformed(value: object) -> None:
+    with pytest.raises(InvalidInputError):
+        security.validate_metadata_token(value)
+
+
+# ----------------------------------------------------------------- category values
+
+
+def test_category_values_are_accepted_when_keys_belong_to_the_category() -> None:
+    result = security.validate_category_values(9830, {"9830_2": " ACME ", "9830_7": ""})
+
+    assert result == {"9830_2": "ACME", "9830_7": ""}
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"6228_2": "x"},  # another category
+        {"09830_2": "x"},  # leading zero is a different category id
+        {"9830_2_3_4": "x"},  # set rows are not supported
+        {"9830_3_multilingual": "x"},
+        {"9830": "x"},
+        {"x_2": "x"},
+        {"9830_2": "x", "evil": "y"},
+        {"9830_2\n": "x"},
+        {5: "x"},
+    ],
+)
+def test_category_values_are_rejected_when_keys_target_other_categories_or_unsupported_forms(
+    values: object,
+) -> None:
+    with pytest.raises(InvalidInputError, match="keys must look like"):
+        security.validate_category_values(9830, values)
+
+
+def test_category_values_reject_the_reserved_token_attribute() -> None:
+    with pytest.raises(InvalidInputError, match="reserved for the metadata token"):
+        security.validate_category_values(9830, {"9830_1": "x"})
+
+
+@pytest.mark.parametrize("values", [{}, None, [], "x", 5])
+def test_category_values_are_rejected_when_not_a_non_empty_object(values: object) -> None:
+    with pytest.raises(InvalidInputError, match="non-empty object"):
+        security.validate_category_values(9830, values)
+
+
+def test_category_values_are_rejected_when_there_are_too_many_entries() -> None:
+    many = {f"9830_{i}": "x" for i in range(2, security.MAX_CATEGORY_VALUES + 3)}
+
+    with pytest.raises(InvalidInputError, match="at most"):
+        security.validate_category_values(9830, many)
+
+
+@pytest.mark.parametrize("value", [5, None, ["a"], "x" * 1001, "a\x00b", "line\nbreak"])
+def test_category_values_are_rejected_when_a_value_is_not_safe_text(value: object) -> None:
+    with pytest.raises(InvalidInputError):
+        security.validate_category_values(9830, {"9830_2": value})
+
+
+# ----------------------------------------------------------------- upload content
+
+
+def test_upload_text_is_encoded_as_utf_8() -> None:
+    assert security.decode_upload("héllo", None, 100) == "héllo".encode()
+
+
+def test_upload_base64_is_decoded_ignoring_whitespace_and_line_wrapping() -> None:
+    encoded = base64.b64encode(b"binary\x00data").decode()
+    wrapped = encoded[:4] + "\n " + encoded[4:]
+
+    assert security.decode_upload(None, wrapped, 100) == b"binary\x00data"
+
+
+@pytest.mark.parametrize(("text", "encoded"), [(None, None), ("a", "YQ=="), ("", ""), ("x", "")])
+def test_upload_requires_exactly_one_content_source(text: object, encoded: object) -> None:
+    with pytest.raises(InvalidInputError, match="exactly one of"):
+        security.decode_upload(text, encoded, 100)
+
+
+@pytest.mark.parametrize("encoded", ["!!!!", "YQ=", "Y Q = = x", "YQ==YQ==", "ñ"])
+def test_upload_rejects_invalid_base64(encoded: str) -> None:
+    with pytest.raises(InvalidInputError, match="valid base64"):
+        security.decode_upload(None, encoded, 100)
+
+
+@pytest.mark.parametrize("text", [5, b"bytes", ["a"]])
+def test_upload_rejects_non_string_text(text: object) -> None:
+    with pytest.raises(InvalidInputError, match="must be a string"):
+        security.decode_upload(text, None, 100)
+
+
+@pytest.mark.parametrize("encoded", [5, b"YQ==", ["YQ=="]])
+def test_upload_rejects_non_string_base64(encoded: object) -> None:
+    with pytest.raises(InvalidInputError, match="must be a string"):
+        security.decode_upload(None, encoded, 100)
+
+
+def test_upload_rejects_empty_content() -> None:
+    with pytest.raises(InvalidInputError, match="must not be empty"):
+        security.decode_upload("", None, 100)
+    with pytest.raises(InvalidInputError, match="must not be empty"):
+        security.decode_upload(None, "   ", 100)
+
+
+def test_upload_rejects_text_over_the_byte_limit_counting_encoded_bytes() -> None:
+    assert security.decode_upload("a" * 10, None, 10) == b"a" * 10
+    with pytest.raises(InvalidInputError, match="at most 10 bytes"):
+        security.decode_upload("ñ" * 6, None, 10)  # 12 bytes in UTF-8
+
+
+def test_upload_rejects_base64_over_the_limit_before_decoding_it() -> None:
+    huge = "A" * 4000
+
+    with pytest.raises(InvalidInputError, match="at most 100 bytes"):
+        security.decode_upload(None, huge, 100)
+
+
+def test_upload_rejects_base64_that_decodes_just_over_the_limit() -> None:
+    encoded = base64.b64encode(b"x" * 101).decode()
+
+    with pytest.raises(InvalidInputError, match="at most 100 bytes"):
+        security.decode_upload(None, encoded, 100)

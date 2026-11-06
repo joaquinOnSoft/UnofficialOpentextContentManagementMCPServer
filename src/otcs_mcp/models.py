@@ -140,3 +140,92 @@ class WorkspaceTypeSummary(_Model):
     name: str | None = None
     rm_enabled: bool | None = None
     in_use: bool | None = None
+
+
+class CreatedNode(_Model):
+    """A node created by a write tool."""
+
+    id: int
+    name: str
+    parent_id: int | None = None
+    type: int | None = None
+    type_name: str | None = None
+    notice: str = DATA_NOTICE
+
+
+class CategoryUpdateResult(_Model):
+    """Outcome of a category update, with the state read just before the change."""
+
+    node_id: int
+    category_id: int
+    updated_keys: list[str]
+    previous_state: list[dict[str, Any]] = Field(
+        description="Category state read immediately before the update (audit trail)."
+    )
+    previous_state_truncated: bool = False
+    notice: str = DATA_NOTICE
+
+
+class RmClassification(_Model):
+    """Records Management classification applied to a node."""
+
+    id: int | None = None
+    name: str | None = None
+    file_number: str | None = None
+    rsi: str | None = None
+    file_status: str | None = None
+    status_date: str | None = None
+    record_date: str | None = None
+    essential: str | None = None
+    official: bool | None = None
+    last_review_date: str | None = None
+    next_review_date: str | None = None
+    accession: str | None = None
+    subject: str | None = None
+    record_officer_name: str | None = None
+    records_manager_name: str | None = None
+    inherit_from: bool | None = None
+    is_primary: bool | None = None
+    management_type: str | None = None
+
+
+class NodeHold(_Model):
+    """A legal/records hold applied to a node."""
+
+    hold_id: int | None = None
+    hold_name: str | None = None
+    hold_type: str | None = None
+    active: bool | None = None
+    applied_by: str | None = None
+    date_applied: str | None = None
+    hold_comment: str | None = None
+    applied_method: str | None = None
+    removable: bool | None = None
+
+
+class NodeRsi(_Model):
+    """A Retention Schedule Identifier (RSI) assigned through a classification."""
+
+    class_id: int | None = None
+    rsi: str | None = None
+
+
+class HoldSummary(_Model):
+    """A hold defined in Records Management."""
+
+    id: int | None = None
+    name: str | None = None
+    active: bool | None = None
+    hold_type: str | None = None
+    comment: str | None = None
+    apply_patron: str | None = None
+    date_applied: str | None = None
+    date_to_remove: str | None = None
+    date_removed: str | None = None
+    parent_id: int | None = None
+
+
+class HoldDetail(HoldSummary):
+    """A single hold, with the untrusted-data notice."""
+
+    notice: str = DATA_NOTICE

@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from otcs_mcp.errors import ConfigError
 
+WRITE_BODY_OVERHEAD_BYTES = 4096  # JSON-RPC envelope around an uploaded document
 _ORIGIN_RE = re.compile(r"https?://[^\s/]+")
 _HOST_RE = re.compile(r"[a-z0-9._-]+|\[[0-9a-f:.]+\]")
 
@@ -68,6 +69,7 @@ class Settings(BaseSettings):
     mcp_read_only: bool = True
     mcp_max_response_items: int = Field(default=50, ge=1, le=500)
     mcp_max_content_bytes: int = Field(default=100_000, ge=1_000, le=2_000_000)
+    mcp_max_upload_bytes: int = Field(default=500_000, ge=1_000, le=50_000_000)
     mcp_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
     mcp_allowed_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["localhost", "127.0.0.1", "[::1]"]
@@ -160,6 +162,13 @@ class Settings(BaseSettings):
             )
         if not self.mcp_read_only:
             warnings.append("MCP_READ_ONLY=false: write tools are enabled.")
+            base64_size = (self.mcp_max_upload_bytes + 2) // 3 * 4 + WRITE_BODY_OVERHEAD_BYTES
+            if self.mcp_transport is Transport.HTTP and base64_size > self.mcp_max_body_bytes:
+                warnings.append(
+                    "MCP_MAX_UPLOAD_BYTES does not fit in MCP_MAX_BODY_BYTES once "
+                    "base64-encoded: uploads near the limit will be rejected with HTTP 413. "
+                    "Raise MCP_MAX_BODY_BYTES."
+                )
         return warnings
 
 
