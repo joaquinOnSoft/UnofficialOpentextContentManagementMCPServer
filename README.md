@@ -309,11 +309,13 @@ curl.exe --cacert .\server.crt -u 'iberia.ecs.team:Yippee-ki-yay'  `
   -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}}}}'
 ```
 
-*Expected:* `ok` for the first call; for the second, a JSON-RPC result whose `tools` array has
+*Expected:* 
+
+* `ok` for the first call; for the second, a JSON-RPC result whose `tools` array has
 17 entries, `"resultType":"complete"`, `"ttlMs":30000` and `"cacheScope":"private"`. (Verified
 locally against a real HTTPS run of this server.)
 
-`--cacert` works because the default certificate lists `localhost` and `127.0.0.1` as Subject
+* `--cacert` works because the default certificate lists `localhost` and `127.0.0.1` as Subject
 Alternative Names. To skip verification in a quick test use `-k` instead of `--cacert`
 (**never in production**). To reach the server by another name, set `TLS_CERT_SAN` (for example
 `DNS:mcp.mycompany.com`) **before the first start**, or regenerate the certificate (Step 9),
@@ -340,12 +342,24 @@ docker compose run --rm -i otcs-mcp-stdio
 
 **Locally with a virtual environment** (verified locally):
 
+Linux: 
+
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.lock && pip install --no-deps -e .
 python -m otcs_mcp          # reads .env in the current directory
 ```
+
+Windows (PowerShell):
+
+```bash
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.lock; if ($?) { pip install --no-deps -e . }
+python -m otcs_mcp          # reads .env in the current directory
+```
+
 
 Check that it responds (no OpenText connection is needed for this):
 
@@ -360,8 +374,11 @@ OK: protocol 2026-07-28, 17 tools: search_nodes, get_node, list_folder_children,
 OK: usage guide has 607 characters
 ```
 
-With the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) (*not verified*,
-requires Node.js): `npx @modelcontextprotocol/inspector python -m otcs_mcp`.
+With the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) (requires Node.js): 
+
+```bash
+npx @modelcontextprotocol/inspector@latest python -m otcs_mcp
+```
 
 *If it fails:* `ModuleNotFoundError: otcs_mcp` means the virtual environment is not active or the
 package is not installed (`pip install --no-deps -e .`). A silent process is normal: stdio servers
